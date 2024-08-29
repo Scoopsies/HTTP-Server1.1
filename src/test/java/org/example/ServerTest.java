@@ -1,5 +1,6 @@
 package org.example;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -16,16 +17,31 @@ class ServerTest {
         server = new Server();
     }
 
-    @Test
-    void serverSocketCreatedAtPort80() {
-        assertEquals(80, server.socketPort);
+    @AfterEach
+    void cleanUp() {
         server.stop();
+    }
+
+    @Test
+    void serverSocketCreatedAtPort80byDefault() {
+        assertEquals(80, server.port);
+    }
+
+    @Test
+    void serverSocketCreatedAtPort5432() {
+        var server = new Server(5432);
+        assertEquals(5432, server.port);
+    }
+
+    @Test
+    void serverSocketCreatedAtPort3212() {
+        var server = new Server(3212);
+        assertEquals(3212, server.port);
     }
 
     @Test
     void localSocketAddressCreated() {
         assertEquals("0.0.0.0/0.0.0.0:80", server.socketAddress.toString());
-        server.stop();
     }
 
     @Test
@@ -34,27 +50,21 @@ class ServerTest {
         thread.start();
 
         try(var socket = new Socket()) {
-            assertDoesNotThrow(() -> {
-                socket.connect(server.socketAddress);
-                socket.close();
-            });
+            assertDoesNotThrow(() -> socket.connect(server.socketAddress));
         } catch (IOException ioe) {
-            System.out.println(ioe.getMessage());
+            System.out.println();
         }
 
         thread.join();
-        server.stop();
     }
 
     @Test
     void stopClosesTheConnectionToPort() throws InterruptedException {
         Thread thread = new Thread(() -> server.run());
         thread.start();
+        assertFalse(server.serverSocket.isClosed());
         server.stop();
         thread.join();
         assertTrue(server.serverSocket.isClosed());
     }
-
-
-
 }

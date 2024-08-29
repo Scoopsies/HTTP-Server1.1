@@ -7,14 +7,20 @@ import java.net.SocketAddress;
 public class Server {
     public ServerSocket serverSocket;
     public SocketAddress socketAddress;
-    public int socketPort;
+    public int port = 80;
 
     public Server() {
-        int port = 80;
+        createServer();
+    }
 
+    public  Server(int portNumber) {
+        this.port = portNumber;
+        createServer();
+    }
+
+    private void createServer() {
         try {
             serverSocket = new ServerSocket(port);
-            socketPort = serverSocket.getLocalPort();
             socketAddress = serverSocket.getLocalSocketAddress();
         } catch (IOException ioe) {
             System.out.println(ioe.getMessage());
