@@ -4,8 +4,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -66,5 +67,53 @@ class ServerTest {
         server.stop();
         thread.join();
         assertTrue(server.serverSocket.isClosed());
+    }
+
+    @Test
+    void readInReadsHello() throws IOException {
+        var bais = new ByteArrayInputStream("Hello".getBytes());
+        var result = new ArrayList<String>();
+        result.add("Hello");
+        assertEquals(result, server.readIn(bais));
+    }
+
+    @Test
+    void readInReadsGoodBye() throws IOException {
+        var bais = new ByteArrayInputStream("Goodbye".getBytes());
+        var result = new ArrayList<String>();
+        result.add("Goodbye");
+        assertEquals(result, server.readIn(bais));
+    }
+
+    @Test
+    void readInReadsGetRequest() throws IOException {
+        var bais = new ByteArrayInputStream("GET /hello HTTP/1.1\r\n".getBytes());
+        var result = new ArrayList<String>();
+        result.add("GET /hello HTTP/1.1");
+        assertEquals(result, server.readIn(bais));
+    }
+
+    @Test
+    void getPathReturnsSlash() throws IOException {
+        var bais = new ByteArrayInputStream("GET / HTTP/1.1\r\n\r\n".getBytes());
+        assertEquals("/", server.getPath(bais));
+    }
+
+    @Test
+    void getPathReturnsSlashHello() throws IOException {
+        var bais = new ByteArrayInputStream("GET /hello HTTP/1.1\r\n\r\n".getBytes());
+        assertEquals("/hello", server.getPath(bais));
+    }
+
+    @Test
+    void getFileReturnsTextInHello() {
+        var bais = new ByteArrayInputStream("GET /hello HTTP/1.1\r\n\r\n".getBytes());
+        assertEquals("<h1>Hello!</h1>", server.getFile(bais));
+    }
+
+    @Test
+    void getFileReturnsTextInGoodBye() {
+        var bais = new ByteArrayInputStream("GET /goodbye HTTP/1.1\r\n\r\n".getBytes());
+        assertEquals("<h1>Goodbye</h1>", server.getFile(bais));
     }
 }
