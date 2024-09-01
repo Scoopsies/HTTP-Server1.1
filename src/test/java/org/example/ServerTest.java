@@ -124,20 +124,7 @@ class ServerTest {
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
-                <h1>Hello!</h1>\r
-                """;
-        assertEquals(result, server.getResponse(inputStream));
-    }
-
-    @Test
-    void getResponseForNoIndex() throws IOException {
-        var inputStream = new ByteArrayInputStream("GET /hello HTTP/1.1".getBytes());
-        var result = """
-                HTTP/1.1 200 OK\r
-                Content-Type: text/html\r
-                \r
-                <h1>Hello!</h1>\r
-                """;
+                <h1>Hello!</h1>""";
         assertEquals(result, server.getResponse(inputStream));
     }
 
@@ -148,8 +135,7 @@ class ServerTest {
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
-                <h1>Goodbye</h1>\r
-                """;
+                <h1>Goodbye</h1>""";
         assertEquals(result, server.getResponse(inputStream));
     }
 
@@ -160,9 +146,58 @@ class ServerTest {
                 HTTP/1.1 404 Not Found\r
                 Content-Type: text/html\r
                 \r
-                <h1>404: This isn't the directory you are looking for.</h1>\r
-                """;
+                <h1>404: This isn't the directory you are looking for.</h1>""";
         assertEquals(result, server.getResponse(inputStream));
+    }
+
+    @Test
+    void getResponseForNoIndex() throws IOException {
+        var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
+        var directory = new File(server.root + "/noIndex");
+        var result ="""
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html\r
+                \r
+                %s""".formatted(server.getDirectoryListing(directory));
+        assertEquals(result, server.getResponse(inputStream));
+    }
+
+    @Test
+    void getResponseForThings() throws IOException {
+        var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
+        var directory = new File(server.root + "/noIndex");
+        var result ="""
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html\r
+                \r
+                %s""".formatted(server.getDirectoryListing(directory));
+        assertEquals(result, server.getResponse(inputStream));
+    }
+
+    @Test
+    void getDirectoryListingForThings() {
+        var directory = new File(server.root + "/things");
+        var fileTxtPath = server.root + "/things/file.txt";
+        var thingsTxtPath = server.root + "/things/things.txt";
+        var result = """
+        <ul>
+        <li><a href="%s">file.txt</a></li>
+        <li><a href="%s">things.txt</a></li>
+        </ul>""".formatted(fileTxtPath, thingsTxtPath);
+        assertEquals(result, server.getDirectoryListing(directory));
+    }
+
+    @Test
+    void getDirectoryListingForNoIndex() {
+        var directory = new File(server.root + "/noIndex");
+        var notIndexPath = server.root + "/noIndex/notIndex.html";
+        var textTxtPath = server.root + "/noIndex/text.txt";
+        var result = """
+        <ul>
+        <li><a href="%s">notIndex.html</a></li>
+        <li><a href="%s">text.txt</a></li>
+        </ul>""".formatted(notIndexPath, textTxtPath);
+        assertEquals(result, server.getDirectoryListing(directory));
     }
 
     @Test

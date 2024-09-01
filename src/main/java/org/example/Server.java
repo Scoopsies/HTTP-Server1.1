@@ -46,22 +46,30 @@ public class Server {
     public String getResponse(InputStream inputStream) throws IOException {
         var filePath = getPath(inputStream);
         var indexHTML = new File(root + filePath + "/index.html");
-        String htmlContent = "Content-Type: text/html\r\n";
-        if (indexHTML.exists()) {
-            String status200 = "HTTP/1.1 200 OK\r\n";
+        var directory = new File(root + filePath);
+        String CLRF = "\r\n";
+        String htmlContent = "Content-Type: text/html" + CLRF;
+        String status404 = "HTTP/1.1 404 Not Found" + CLRF;
+        String status200 = "HTTP/1.1 200 OK" + CLRF;
+
+
+        if (indexHTML.exists())
             return status200
                     + htmlContent
-                    + "\r\n"
-                    + getHtmlContent(indexHTML)
-                    + "\r\n";
+                    + CLRF
+                    + getHtmlContent(indexHTML);
+
+        if (directory.exists()) {
+            return status200
+                    + htmlContent
+                    + CLRF
+                    + getDirectoryListing(directory);
         }
 
-        String status404 = "HTTP/1.1 404 Not Found\r\n";
         return status404
                 + htmlContent
-                + "\r\n"
-                + "<h1>404: This isn't the directory you are looking for.</h1>"
-                + "\r\n";
+                + CLRF
+                + "<h1>404: This isn't the directory you are looking for.</h1>";
     }
 
     public void stop() {
@@ -114,5 +122,29 @@ public class Server {
            htmlContent = htmlContent.concat(scanner.nextLine() + "\n");
         }
         return htmlContent.substring(0, htmlContent.length() - 1);
+    }
+
+    public String getDirectoryListing(File directory) {
+        var listing = directory.list();
+        var stringBuilder = new StringBuilder();
+
+        stringBuilder.append("<ul>\n");
+
+        assert listing != null;
+        for (String s : listing) {
+            stringBuilder.append("<li>");
+            stringBuilder.append("<a href=\"");
+            stringBuilder.append(directory.getPath());
+            stringBuilder.append("/");
+            stringBuilder.append(s);
+            stringBuilder.append("\">");
+            stringBuilder.append(s);
+            stringBuilder.append("</a>");
+            stringBuilder.append("</li>\n");
+        }
+
+        stringBuilder.append("</ul>");
+
+        return stringBuilder.toString();
     }
 }
