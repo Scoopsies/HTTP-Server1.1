@@ -3,13 +3,14 @@ package org.example;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
-import java.util.Scanner;
+import java.util.HashMap;
 
 public class Server {
     public ServerSocket serverSocket;
     public SocketAddress socketAddress;
     public int port = 80;
     public String root = "/Users/scoops/Projects/httpServer1.1/src/PathFiles";
+    public Boolean isRunning = true;
 
     public Server() {
         createServer();
@@ -30,16 +31,23 @@ public class Server {
     }
 
     public void run() {
-        try {
-          var clientSocket = serverSocket.accept();
-          var in = clientSocket.getInputStream();
-          var out = clientSocket.getOutputStream();
-          var response = getResponse(in);
-          out.write(response.getBytes());
-          clientSocket.close();
-        } catch (IOException ioe){
-            System.out.println(ioe.getMessage());
+        while (isRunning) {
+            try {
+                var clientSocket = serverSocket.accept();
+                var in = clientSocket.getInputStream();
+                var out = clientSocket.getOutputStream();
+                var response = getResponse(in);
+                out.write(response.getBytes());
+                clientSocket.close();
+            } catch (IOException ioe) {
+                System.out.println(ioe.getMessage());
+            }
         }
+    }
+
+    public void stop() throws IOException {
+        isRunning = false;
+        serverSocket.close();
     }
 
     public String getResponse(InputStream inputStream) throws IOException {
@@ -64,18 +72,12 @@ public class Server {
                     + getDirectoryListing(directory);
         }
 
+        var fileNotFound = new File(root + "/404/index.html");
+
         return status404
                 + htmlContent
                 + CLRF
-                + "<h1>404: This isn't the directory you are looking for.</h1>";
-    }
-
-    public void stop() {
-        try {
-            serverSocket.close();
-        } catch (IOException ioe) {
-            System.out.println(ioe.getMessage());
-        }
+                + getHtmlContent(fileNotFound);
     }
 
     public String getHeader(InputStream input) throws IOException {
@@ -107,14 +109,20 @@ public class Server {
 
 
     public String getHtmlContent(File file) throws IOException {
-        var scanner = new Scanner(file);
-        var htmlContent = "";
+        StringBuilder htmlContent = new StringBuilder();
 
-        while (scanner.hasNextLine()) {
-           htmlContent = htmlContent.concat(scanner.nextLine() + "\n");
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                htmlContent.append(line).append("\n");
+            }
         }
 
-        return htmlContent.substring(0, htmlContent.length() - 1);
+        if (!htmlContent.isEmpty()) {
+            htmlContent.setLength(htmlContent.length() - 1);
+        }
+
+        return htmlContent.toString();
     }
 
     public String getDirectoryListing(File directory) {
@@ -142,5 +150,23 @@ public class Server {
         stringBuilder.append("</ul>");
 
         return stringBuilder.toString();
+    }
+
+    public String getContentType(String path) {
+        var extension = getExtensionOf(path);
+
+        var contentTypes = new HashMap<String, String>();
+        contentTypes.put("html", "Content-Type: text/html");
+        contentTypes.put("png", "Content-Type: image/png");
+        contentTypes.put("gif", "Content-Type: image/gif");
+        contentTypes.put("jpeg", "Content-Type: image/jpeg");
+        contentTypes.put("pdf", "Content-Type: application/pdf");
+
+        return contentTypes.get(extension);
+    }
+
+    public String getExtensionOf(String path) {
+        int lastDotIndex = path.lastIndexOf(".");
+        return path.substring(lastDotIndex + 1);
     }
 }

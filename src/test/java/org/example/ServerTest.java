@@ -18,7 +18,7 @@ class ServerTest {
     }
 
     @AfterEach
-    void cleanUp() {
+    void cleanUp() throws IOException {
         server.stop();
     }
 
@@ -59,7 +59,7 @@ class ServerTest {
     }
 
     @Test
-    void stopClosesTheConnectionToPort() throws InterruptedException {
+    void stopClosesTheConnectionToPort() throws InterruptedException, IOException {
         Thread thread = new Thread(() -> server.run());
         thread.start();
         assertFalse(server.serverSocket.isClosed());
@@ -203,5 +203,41 @@ class ServerTest {
         var file = new File(server.root + "/goodbye/goodbye2/index.html");
         var result = "<h1>goodbye2</h1>\n<p>Bonus Line</p>";
         assertEquals(result, server.getHtmlContent(file));
+    }
+
+    @Test
+    void getExtensionOfGetsHTML() {
+        assertEquals("html", server.getExtensionOf("index.html"));
+        assertEquals("html", server.getExtensionOf("notIndex.html"));
+    }
+
+    @Test
+    void getExtensionOfGetsPng() {
+        assertEquals("png", server.getExtensionOf("miata.png"));
+    }
+
+    @Test
+    void getContentTypeReturnsHTML() {
+        assertEquals("Content-Type: text/html", server.getContentType("/hello/index.html"));
+    }
+
+    @Test
+    void getContentTypeReturnsPNG() {
+        assertEquals("Content-Type: image/png", server.getContentType("/things/miata.png"));
+    }
+
+    @Test
+    void getContentTypeReturnsGIF() {
+        assertEquals("Content-Type: image/gif", server.getContentType("/things/miata.gif"));
+    }
+
+    @Test
+    void getContentTypeReturnsJPEG() {
+        assertEquals("Content-Type: image/jpeg", server.getContentType("/things/miata.jpeg"));
+    }
+
+    @Test
+    void getContentTypeReturnsPDF() {
+        assertEquals("Content-Type: application/pdf", server.getContentType("/things/miata.pdf"));
     }
 }
