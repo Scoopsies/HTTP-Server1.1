@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -67,30 +66,6 @@ class ServerTest {
         server.stop();
         thread.join();
         assertTrue(server.serverSocket.isClosed());
-    }
-
-    @Test
-    void readInReadsHello() {
-        var bais = new ByteArrayInputStream("Hello".getBytes());
-        var result = new ArrayList<String>();
-        result.add("Hello");
-        assertEquals(result, server.readIn(bais));
-    }
-
-    @Test
-    void readInReadsGoodBye() {
-        var bais = new ByteArrayInputStream("Goodbye".getBytes());
-        var result = new ArrayList<String>();
-        result.add("Goodbye");
-        assertEquals(result, server.readIn(bais));
-    }
-
-    @Test
-    void readInReadsGetRequest() {
-        var bais = new ByteArrayInputStream("GET /hello HTTP/1.1\r\n".getBytes());
-        var result = new ArrayList<String>();
-        result.add("GET /hello HTTP/1.1");
-        assertEquals(result, server.readIn(bais));
     }
 
     @Test
@@ -180,6 +155,7 @@ class ServerTest {
         var fileTxtPath = server.root + "/things/file.txt";
         var thingsTxtPath = server.root + "/things/things.txt";
         var result = """
+        <h1>Directory Listing for /things</h1>
         <ul>
         <li><a href="%s">file.txt</a></li>
         <li><a href="%s">things.txt</a></li>
@@ -193,6 +169,7 @@ class ServerTest {
         var notIndexPath = server.root + "/noIndex/notIndex.html";
         var textTxtPath = server.root + "/noIndex/text.txt";
         var result = """
+        <h1>Directory Listing for /noIndex</h1>
         <ul>
         <li><a href="%s">notIndex.html</a></li>
         <li><a href="%s">text.txt</a></li>

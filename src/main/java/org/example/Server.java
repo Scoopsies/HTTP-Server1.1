@@ -3,7 +3,6 @@ package org.example;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
-import java.util.List;
 import java.util.Scanner;
 
 public class Server {
@@ -17,7 +16,7 @@ public class Server {
     }
 
     public  Server(int portNumber) {
-        this.port = portNumber;
+        port = portNumber;
         createServer();
     }
 
@@ -52,7 +51,6 @@ public class Server {
         String status404 = "HTTP/1.1 404 Not Found" + CLRF;
         String status200 = "HTTP/1.1 200 OK" + CLRF;
 
-
         if (indexHTML.exists())
             return status200
                     + htmlContent
@@ -80,16 +78,10 @@ public class Server {
         }
     }
 
-    public List<String> readIn(InputStream in) {
-        var reader = new BufferedReader(new InputStreamReader(in));
-        return reader.lines().toList();
-    }
-
     public String getHeader(InputStream input) throws IOException {
         var reader = new BufferedReader(new InputStreamReader(input));
         return reader.readLine();
     }
-
 
     public String getPath(InputStream input) throws IOException {
        return getHeader(input).split("\\s")[1];
@@ -121,6 +113,7 @@ public class Server {
         while (scanner.hasNextLine()) {
            htmlContent = htmlContent.concat(scanner.nextLine() + "\n");
         }
+
         return htmlContent.substring(0, htmlContent.length() - 1);
     }
 
@@ -128,17 +121,20 @@ public class Server {
         var listing = directory.list();
         var stringBuilder = new StringBuilder();
 
+        stringBuilder.append("<h1>Directory Listing for /");
+        stringBuilder.append(directory.getName());
+        stringBuilder.append("</h1>\n");
         stringBuilder.append("<ul>\n");
 
         assert listing != null;
-        for (String s : listing) {
+        for (String fileName : listing) {
             stringBuilder.append("<li>");
             stringBuilder.append("<a href=\"");
             stringBuilder.append(directory.getPath());
             stringBuilder.append("/");
-            stringBuilder.append(s);
+            stringBuilder.append(fileName);
             stringBuilder.append("\">");
-            stringBuilder.append(s);
+            stringBuilder.append(fileName);
             stringBuilder.append("</a>");
             stringBuilder.append("</li>\n");
         }
