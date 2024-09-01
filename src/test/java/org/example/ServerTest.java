@@ -70,7 +70,7 @@ class ServerTest {
     }
 
     @Test
-    void readInReadsHello() throws IOException {
+    void readInReadsHello() {
         var bais = new ByteArrayInputStream("Hello".getBytes());
         var result = new ArrayList<String>();
         result.add("Hello");
@@ -78,7 +78,7 @@ class ServerTest {
     }
 
     @Test
-    void readInReadsGoodBye() throws IOException {
+    void readInReadsGoodBye() {
         var bais = new ByteArrayInputStream("Goodbye".getBytes());
         var result = new ArrayList<String>();
         result.add("Goodbye");
@@ -86,7 +86,7 @@ class ServerTest {
     }
 
     @Test
-    void readInReadsGetRequest() throws IOException {
+    void readInReadsGetRequest() {
         var bais = new ByteArrayInputStream("GET /hello HTTP/1.1\r\n".getBytes());
         var result = new ArrayList<String>();
         result.add("GET /hello HTTP/1.1");
@@ -115,5 +115,81 @@ class ServerTest {
     void getFileReturnsTextInGoodBye() {
         var bais = new ByteArrayInputStream("GET /goodbye HTTP/1.1\r\n\r\n".getBytes());
         assertEquals("<h1>Goodbye</h1>", server.getFile(bais));
+    }
+
+    @Test
+    void getResponseHello() throws IOException {
+        var inputStream = new ByteArrayInputStream("GET /hello HTTP/1.1".getBytes());
+        var result = """
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html\r
+                \r
+                <h1>Hello!</h1>\r
+                """;
+        assertEquals(result, server.getResponse(inputStream));
+    }
+
+    @Test
+    void getResponseForNoIndex() throws IOException {
+        var inputStream = new ByteArrayInputStream("GET /hello HTTP/1.1".getBytes());
+        var result = """
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html\r
+                \r
+                <h1>Hello!</h1>\r
+                """;
+        assertEquals(result, server.getResponse(inputStream));
+    }
+
+    @Test
+    void getResponseGoodBye() throws IOException {
+        var inputStream = new ByteArrayInputStream("GET /goodbye HTTP/1.1".getBytes());
+        var result = """
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html\r
+                \r
+                <h1>Goodbye</h1>\r
+                """;
+        assertEquals(result, server.getResponse(inputStream));
+    }
+
+    @Test
+    void getResponseIf404() throws IOException {
+        var inputStream = new ByteArrayInputStream("GET /hamburger HTTP/1.1".getBytes());
+        var result = """
+                HTTP/1.1 404 Not Found\r
+                Content-Type: text/html\r
+                \r
+                <h1>404: This isn't the directory you are looking for.</h1>\r
+                """;
+        assertEquals(result, server.getResponse(inputStream));
+    }
+
+    @Test
+    void getHTMLContentReturnsHello() throws IOException {
+        var file = new File(server.root + "/hello/index.html");
+        var result = "<h1>Hello!</h1>";
+        assertEquals(result, server.getHtmlContent(file));
+    }
+
+    @Test
+    void getHTMLContentReturnsGoodbye() throws IOException {
+        var file = new File(server.root + "/goodbye/index.html");
+        var result = "<h1>Goodbye</h1>";
+        assertEquals(result, server.getHtmlContent(file));
+    }
+
+    @Test
+    void getHTMLContentReturnsNoIndex() throws IOException {
+        var file = new File(server.root + "/noIndex/notIndex.html");
+        var result = "<h1>Not Index.html</h1>";
+        assertEquals(result, server.getHtmlContent(file));
+    }
+
+    @Test
+    void getHTMLContentReturnsGoodBye2() throws IOException {
+        var file = new File(server.root + "/goodbye/goodbye2/index.html");
+        var result = "<h1>goodbye2</h1>\n<p>Bonus Line</p>";
+        assertEquals(result, server.getHtmlContent(file));
     }
 }
