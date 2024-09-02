@@ -4,10 +4,13 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
 import java.nio.file.Files;
-import java.util.HashMap;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
 public class Server {
+    public static final String CLRF = "\r\n";
     public ServerSocket serverSocket;
     public SocketAddress socketAddress;
     public int port = 80;
@@ -41,7 +44,7 @@ public class Server {
                 var response = getResponse(in);
                 out.write(response);
                 clientSocket.close();
-            } catch (IOException ioe) {
+            } catch (IOException | InterruptedException ioe) {
                 System.out.println(ioe.getMessage());
             }
         }
@@ -52,49 +55,59 @@ public class Server {
         serverSocket.close();
     }
 
-    public byte[] getResponse(InputStream inputStream) throws IOException {
+    // new File("./blah") will look for blah/ in current working directory (where program was run from)
+    // new File("/blah") will look for blah/ in ROOT directory of system
+
+    private String responseStatus(String status) {
+        return "HTTP/1.1 " + status + CLRF;
+    }
+
+    public byte[] getResponse(InputStream inputStream) throws IOException, InterruptedException {
         var filePath = getPath(inputStream);
         var indexHTML = new File(root + filePath + "/index.html");
         var file = new File(root + filePath);
-        String CLRF = "\r\n";
-        String htmlContent = "Content-Type: text/html" + CLRF;
-        String status404 = "HTTP/1.1 404 Not Found" + CLRF;
-        String status200 = "HTTP/1.1 200 OK" + CLRF;
+        String htmlContent = "Content-Type: text/html";
 
         ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
 
+        if (filePath.endsWith("/ping")) {
+            Thread.sleep(1000);
+            return buildResponse(responseStream, getContentType("index.html"), getCurrentTime().getBytes());
+        }
+
         if (indexHTML.exists()) {
-            responseStream.write(status200.getBytes());
-            responseStream.write(getContentType("index.html").getBytes());
-            responseStream.write(CLRF.getBytes());
-            responseStream.write(CLRF.getBytes());
-            responseStream.write(getFileContent(indexHTML));
-            return responseStream.toByteArray();
+            return buildResponse(responseStream, getContentType("index.html"), getFileContent(indexHTML));
         }
 
         if (file.isFile()){
-            responseStream.write(status200.getBytes());
-            responseStream.write(getContentType(filePath).getBytes());
-            responseStream.write(CLRF.getBytes());
-            responseStream.write(CLRF.getBytes());
-            responseStream.write(getFileContent(file));
-            return responseStream.toByteArray();
+            return buildResponse(responseStream, getContentType(filePath), getFileContent(file));
         }
 
         if (file.isDirectory()) {
-            responseStream.write(status200.getBytes());
-            responseStream.write(htmlContent.getBytes());
-            responseStream.write(CLRF.getBytes());
-            responseStream.write(getDirectoryListing(file).getBytes());
-            return responseStream.toByteArray();
+            return buildResponse(responseStream, htmlContent, getDirectoryListing(file).getBytes());
         }
 
         var fileNotFound = new File(root + "/404/index.html");
-        responseStream.write(status404.getBytes());
-        responseStream.write(("Content-Type: text/html" + CLRF).getBytes());
+        return buildResponse(responseStream, "404 Not Found", htmlContent, getFileContent(fileNotFound));
+    }
+
+    private byte[] buildResponse(ByteArrayOutputStream responseStream, String status, String contentType, byte[] content) throws IOException {
+        responseStream.write(responseStatus(status).getBytes());
+        responseStream.write(contentType.getBytes());
         responseStream.write(CLRF.getBytes());
-        responseStream.write(getFileContent(fileNotFound));
+        responseStream.write(CLRF.getBytes());
+        responseStream.write(content);
         return responseStream.toByteArray();
+    }
+
+    private byte[] buildResponse(ByteArrayOutputStream responseStream, String contentType, byte[] content) throws IOException {
+        return buildResponse(responseStream, "200 OK", contentType, content);
+    }
+
+    private String getCurrentTime() {
+        var time = LocalDateTime.now();
+        var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        return time.format(formatter);
     }
 
     public String getHeader(InputStream input) throws IOException {
@@ -189,21 +202,28 @@ public class Server {
         return stringBuilder.toString();
     }
 
-    public String getContentType(String path) {
-        var extension = getExtensionOf(path);
+    public String getContentType(String pathString) {
+        var path = Path.of(pathString);
+        String contentType;
 
-        var contentTypes = new HashMap<String, String>();
-        contentTypes.put("html", "Content-Type: text/html");
-        contentTypes.put("png", "Content-Type: image/png");
-        contentTypes.put("gif", "Content-Type: image/gif");
-        contentTypes.put("jpeg", "Content-Type: image/jpeg");
-        contentTypes.put("pdf", "Content-Type: application/pdf");
+        try {
+            contentType = Files.probeContentType(path);
+            if (contentType == null)
+                contentType = "text/html";
+        } catch (IOException ioe) {
+            contentType = "text/html";
+            System.out.println(ioe.getMessage());
+        }
 
-        return contentTypes.get(extension);
+        return "Content-Type: " + contentType;
     }
 
     public String getExtensionOf(String path) {
         int lastDotIndex = path.lastIndexOf(".");
         return path.substring(lastDotIndex + 1);
+    }
+
+    public void parseArgs(String[] args) {
+        port = Integer.parseInt(args[1]);
     }
 }

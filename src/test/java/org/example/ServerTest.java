@@ -93,7 +93,7 @@ class ServerTest {
     }
 
     @Test
-    void getResponseHello() throws IOException {
+    void getResponseHello() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /hello HTTP/1.1".getBytes());
         var expected = """
                 HTTP/1.1 200 OK\r
@@ -105,7 +105,7 @@ class ServerTest {
     }
 
     @Test
-    void getResponseGoodBye() throws IOException {
+    void getResponseGoodBye() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /goodbye HTTP/1.1".getBytes());
         var expected = """
                 HTTP/1.1 200 OK\r
@@ -117,7 +117,7 @@ class ServerTest {
     }
 
     @Test
-    void getResponseIf404() throws IOException {
+    void getResponseIf404() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /hamburger HTTP/1.1".getBytes());
         var expected = """
                 HTTP/1.1 404 Not Found\r
@@ -129,7 +129,7 @@ class ServerTest {
     }
 
     @Test
-    void getResponseForNoIndex() throws IOException {
+    void getResponseForNoIndex() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
         var directory = new File(server.root + "/noIndex");
         var expected ="""
@@ -142,7 +142,7 @@ class ServerTest {
     }
 
     @Test
-    void getResponseForNotIndexHTML() throws IOException {
+    void getResponseForNotIndexHTML() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /noIndex/notIndex.html HTTP/1.1".getBytes());
         var file = new File(server.root + "/noIndex/notIndex.html");
         var expected ="""
@@ -155,7 +155,7 @@ class ServerTest {
     }
 
     @Test
-    void getResponseForThings() throws IOException {
+    void getResponseForThings() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
         var directory = new File(server.root + "/noIndex");
         var expected ="""
@@ -170,16 +170,15 @@ class ServerTest {
     @Test
     void getDirectoryListingForThings() {
         var directory = new File(server.root + "/things");
-        var fileTxtPath = "things/file.txt";
-        var miataGifPath = "things/miata.gif";
-        var thingsTxtPath = "things/things.txt";
         var result = """
         <h1>Directory Listing for /things</h1>
         <ul>
-        <li><a href="%s">file.txt</a></li>
-        <li><a href="%s">miata.gif</a></li>
-        <li><a href="%s">things.txt</a></li>
-        </ul>""".formatted(fileTxtPath, miataGifPath, thingsTxtPath);
+        <li><a href="things/miata.pdf">miata.pdf</a></li>
+        <li><a href="things/miata.jpg">miata.jpg</a></li>
+        <li><a href="things/miata.png">miata.png</a></li>
+        <li><a href="things/miata.txt">miata.txt</a></li>
+        <li><a href="things/miata.gif">miata.gif</a></li>
+        </ul>""";
         assertEquals(result, server.getDirectoryListing(directory));
     }
 
@@ -256,7 +255,6 @@ class ServerTest {
         assertEquals("Content-Type: text/html", server.getContentType("/hello/index.html"));
     }
 
-
     @Test
     void getContentTypeReturnsPNG() {
         assertEquals("Content-Type: image/png", server.getContentType("/things/miata.png"));
@@ -276,4 +274,24 @@ class ServerTest {
     void getContentTypeReturnsPDF() {
         assertEquals("Content-Type: application/pdf", server.getContentType("/things/miata.pdf"));
     }
+
+    @Test
+    void getContentTypeReturnsHtmlForDirectory() {
+        assertEquals("Content-Type: text/html", server.getContentType("/things"));
+    }
+
+    @Test
+    void parseArgsSetsPort8080() {
+        String[] args = {"-p", "8080"};
+        server.parseArgs(args);
+        assertEquals(8080, server.port);
+    }
+
+    @Test
+    void parseArgsSetsPort800() {
+        String[] args = {"-p", "800"};
+        server.parseArgs(args);
+        assertEquals(800, server.port);
+    }
+
 }
