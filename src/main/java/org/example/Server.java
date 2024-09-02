@@ -3,7 +3,9 @@ package org.example;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.Objects;
 
 public class Server {
     public ServerSocket serverSocket;
@@ -37,7 +39,7 @@ public class Server {
                 var in = clientSocket.getInputStream();
                 var out = clientSocket.getOutputStream();
                 var response = getResponse(in);
-                out.write(response.getBytes());
+                out.write(response);
                 clientSocket.close();
             } catch (IOException ioe) {
                 System.out.println(ioe.getMessage());
@@ -50,34 +52,49 @@ public class Server {
         serverSocket.close();
     }
 
-    public String getResponse(InputStream inputStream) throws IOException {
+    public byte[] getResponse(InputStream inputStream) throws IOException {
         var filePath = getPath(inputStream);
         var indexHTML = new File(root + filePath + "/index.html");
-        var directory = new File(root + filePath);
+        var file = new File(root + filePath);
         String CLRF = "\r\n";
         String htmlContent = "Content-Type: text/html" + CLRF;
         String status404 = "HTTP/1.1 404 Not Found" + CLRF;
         String status200 = "HTTP/1.1 200 OK" + CLRF;
 
-        if (indexHTML.exists())
-            return status200
-                    + htmlContent
-                    + CLRF
-                    + getHtmlContent(indexHTML);
+        ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
 
-        if (directory.exists()) {
-            return status200
-                    + htmlContent
-                    + CLRF
-                    + getDirectoryListing(directory);
+        if (indexHTML.exists()) {
+            responseStream.write(status200.getBytes());
+            responseStream.write(getContentType("index.html").getBytes());
+            responseStream.write(CLRF.getBytes());
+            responseStream.write(CLRF.getBytes());
+            responseStream.write(getFileContent(indexHTML));
+            return responseStream.toByteArray();
+        }
+
+        if (file.isFile()){
+            responseStream.write(status200.getBytes());
+            responseStream.write(getContentType(filePath).getBytes());
+            responseStream.write(CLRF.getBytes());
+            responseStream.write(CLRF.getBytes());
+            responseStream.write(getFileContent(file));
+            return responseStream.toByteArray();
+        }
+
+        if (file.isDirectory()) {
+            responseStream.write(status200.getBytes());
+            responseStream.write(htmlContent.getBytes());
+            responseStream.write(CLRF.getBytes());
+            responseStream.write(getDirectoryListing(file).getBytes());
+            return responseStream.toByteArray();
         }
 
         var fileNotFound = new File(root + "/404/index.html");
-
-        return status404
-                + htmlContent
-                + CLRF
-                + getHtmlContent(fileNotFound);
+        responseStream.write(status404.getBytes());
+        responseStream.write(("Content-Type: text/html" + CLRF).getBytes());
+        responseStream.write(CLRF.getBytes());
+        responseStream.write(getFileContent(fileNotFound));
+        return responseStream.toByteArray();
     }
 
     public String getHeader(InputStream input) throws IOException {
@@ -107,8 +124,22 @@ public class Server {
         return result;
     }
 
+    public byte[] getFileContent(File file) throws IOException {
+        String extension = getExtensionOf(file.getName());
 
-    public String getHtmlContent(File file) throws IOException {
+        if (isTextFile(extension))
+            return getTextFileContent(file).getBytes();
+
+        return getBinaryFileContent(file);
+
+    }
+
+    private boolean isTextFile(String extension) {
+        return Objects.equals("html", extension) || Objects.equals("txt", extension);
+    }
+
+
+    public String getTextFileContent(File file) throws IOException {
         StringBuilder htmlContent = new StringBuilder();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
@@ -125,8 +156,14 @@ public class Server {
         return htmlContent.toString();
     }
 
+    public byte[] getBinaryFileContent(File file) throws IOException {
+        var path = file.toPath();
+        return Files.readAllBytes(path);
+    }
+
     public String getDirectoryListing(File directory) {
         var listing = directory.list();
+        var path = directory.getPath().substring(root.length() + 1);
         var stringBuilder = new StringBuilder();
 
         stringBuilder.append("<h1>Directory Listing for /");
@@ -138,7 +175,7 @@ public class Server {
         for (String fileName : listing) {
             stringBuilder.append("<li>");
             stringBuilder.append("<a href=\"");
-            stringBuilder.append(directory.getPath());
+            stringBuilder.append(path);
             stringBuilder.append("/");
             stringBuilder.append(fileName);
             stringBuilder.append("\">");

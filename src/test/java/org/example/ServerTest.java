@@ -95,79 +95,99 @@ class ServerTest {
     @Test
     void getResponseHello() throws IOException {
         var inputStream = new ByteArrayInputStream("GET /hello HTTP/1.1".getBytes());
-        var result = """
+        var expected = """
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
                 <h1>Hello!</h1>""";
-        assertEquals(result, server.getResponse(inputStream));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
     }
 
     @Test
     void getResponseGoodBye() throws IOException {
         var inputStream = new ByteArrayInputStream("GET /goodbye HTTP/1.1".getBytes());
-        var result = """
+        var expected = """
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
                 <h1>Goodbye</h1>""";
-        assertEquals(result, server.getResponse(inputStream));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
     }
 
     @Test
     void getResponseIf404() throws IOException {
         var inputStream = new ByteArrayInputStream("GET /hamburger HTTP/1.1".getBytes());
-        var result = """
+        var expected = """
                 HTTP/1.1 404 Not Found\r
                 Content-Type: text/html\r
                 \r
                 <h1>404: This isn't the directory you are looking for.</h1>""";
-        assertEquals(result, server.getResponse(inputStream));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
     }
 
     @Test
     void getResponseForNoIndex() throws IOException {
         var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
         var directory = new File(server.root + "/noIndex");
-        var result ="""
+        var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
                 %s""".formatted(server.getDirectoryListing(directory));
-        assertEquals(result, server.getResponse(inputStream));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    void getResponseForNotIndexHTML() throws IOException {
+        var inputStream = new ByteArrayInputStream("GET /noIndex/notIndex.html HTTP/1.1".getBytes());
+        var file = new File(server.root + "/noIndex/notIndex.html");
+        var expected ="""
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html\r
+                \r
+                %s""".formatted(server.getTextFileContent(file));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
     }
 
     @Test
     void getResponseForThings() throws IOException {
         var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
         var directory = new File(server.root + "/noIndex");
-        var result ="""
+        var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
                 %s""".formatted(server.getDirectoryListing(directory));
-        assertEquals(result, server.getResponse(inputStream));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
     }
 
     @Test
     void getDirectoryListingForThings() {
         var directory = new File(server.root + "/things");
-        var fileTxtPath = server.root + "/things/file.txt";
-        var thingsTxtPath = server.root + "/things/things.txt";
+        var fileTxtPath = "things/file.txt";
+        var miataGifPath = "things/miata.gif";
+        var thingsTxtPath = "things/things.txt";
         var result = """
         <h1>Directory Listing for /things</h1>
         <ul>
         <li><a href="%s">file.txt</a></li>
+        <li><a href="%s">miata.gif</a></li>
         <li><a href="%s">things.txt</a></li>
-        </ul>""".formatted(fileTxtPath, thingsTxtPath);
+        </ul>""".formatted(fileTxtPath, miataGifPath, thingsTxtPath);
         assertEquals(result, server.getDirectoryListing(directory));
     }
 
     @Test
     void getDirectoryListingForNoIndex() {
         var directory = new File(server.root + "/noIndex");
-        var notIndexPath = server.root + "/noIndex/notIndex.html";
-        var textTxtPath = server.root + "/noIndex/text.txt";
+        var notIndexPath = "noIndex/notIndex.html";
+        var textTxtPath = "noIndex/text.txt";
         var result = """
         <h1>Directory Listing for /noIndex</h1>
         <ul>
@@ -181,28 +201,28 @@ class ServerTest {
     void getHTMLContentReturnsHello() throws IOException {
         var file = new File(server.root + "/hello/index.html");
         var result = "<h1>Hello!</h1>";
-        assertEquals(result, server.getHtmlContent(file));
+        assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsGoodbye() throws IOException {
         var file = new File(server.root + "/goodbye/index.html");
         var result = "<h1>Goodbye</h1>";
-        assertEquals(result, server.getHtmlContent(file));
+        assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsNoIndex() throws IOException {
         var file = new File(server.root + "/noIndex/notIndex.html");
         var result = "<h1>Not Index.html</h1>";
-        assertEquals(result, server.getHtmlContent(file));
+        assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsGoodBye2() throws IOException {
         var file = new File(server.root + "/goodbye/goodbye2/index.html");
         var result = "<h1>goodbye2</h1>\n<p>Bonus Line</p>";
-        assertEquals(result, server.getHtmlContent(file));
+        assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
@@ -217,9 +237,25 @@ class ServerTest {
     }
 
     @Test
+    void getExtensionOfGetsGif() {
+        assertEquals("gif", server.getExtensionOf("miata.gif"));
+    }
+
+    @Test
+    void getExtensionOfGetsJpeg() {
+        assertEquals("jpeg", server.getExtensionOf("miata.jpeg"));
+    }
+
+    @Test
+    void getExtensionOfGetsPdf() {
+        assertEquals("pdf", server.getExtensionOf("miata.pdf"));
+    }
+
+    @Test
     void getContentTypeReturnsHTML() {
         assertEquals("Content-Type: text/html", server.getContentType("/hello/index.html"));
     }
+
 
     @Test
     void getContentTypeReturnsPNG() {
