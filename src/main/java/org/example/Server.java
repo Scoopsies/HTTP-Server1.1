@@ -170,6 +170,7 @@ public class Server {
                 htmlContent.append(line).append("\n");
             }
         }
+        htmlContent.append("\n");
 
         if (!htmlContent.isEmpty()) {
             htmlContent.setLength(htmlContent.length() - 1);

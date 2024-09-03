@@ -77,7 +77,8 @@ class ServerTest {
                 Content-Type: text/html
                 Server: httpServer1.1\r
                 \r
-                <h1>Hello!</h1>""";
+                <h1>Hello!</h1>
+                """;
         var result = new String(server.getResponse(inputStream));
         assertEquals(expected, result);
     }
@@ -90,7 +91,8 @@ class ServerTest {
                 Content-Type: text/html
                 Server: httpServer1.1\r
                 \r
-                <h1>Goodbye</h1>""";
+                <h1>Goodbye</h1>
+                """;
         var result = new String(server.getResponse(inputStream));
         assertEquals(expected, result);
     }
@@ -103,7 +105,8 @@ class ServerTest {
                 Content-Type: text/html
                 Server: httpServer1.1\r
                 \r
-                <h1>404: This isn't the directory you are looking for.</h1>""";
+                <h1>404: This isn't the directory you are looking for.</h1>
+                """;
         var result = new String(server.getResponse(inputStream));
         assertEquals(expected, result);
     }
@@ -180,28 +183,28 @@ class ServerTest {
     @Test
     void getHTMLContentReturnsHello() throws IOException {
         var file = new File("./hello/index.html");
-        var result = "<h1>Hello!</h1>";
+        var result = "<h1>Hello!</h1>\n";
         assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsGoodbye() throws IOException {
         var file = new File("./goodbye/index.html");
-        var result = "<h1>Goodbye</h1>";
+        var result = "<h1>Goodbye</h1>\n";
         assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsNoIndex() throws IOException {
         var file = new File("./noIndex/notIndex.html");
-        var result = "<h1>Not Index.html</h1>";
+        var result = "<h1>Not Index.html</h1>\n";
         assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsGoodBye2() throws IOException {
         var file = new File("./goodbye/goodbye2/index.html");
-        var result = "<h1>goodbye2</h1>\n<p>Bonus Line</p>";
+        var result = "<h1>goodbye2</h1>\n<p>Bonus Line</p>\n";
         assertEquals(result, server.getTextFileContent(file));
     }
 
