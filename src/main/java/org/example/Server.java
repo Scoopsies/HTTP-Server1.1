@@ -103,11 +103,11 @@ public class Server {
         return time.format(formatter);
     }
 
-    public String getPath(String request) throws IOException {
+    public String getPath(String request) {
        return splitHeader(request)[1];
     }
 
-    public String getMethod(String request) throws IOException {
+    public String getMethod(String request) {
         return splitHeader(request)[0];
     }
 
@@ -115,7 +115,7 @@ public class Server {
         return request.split("\r\n")[0];
     }
 
-    private String[] splitHeader(String request) throws IOException {
+    private String[] splitHeader(String request) {
         return getHeader(request).split("\\s");
     }
 
@@ -217,6 +217,17 @@ public class Server {
     }
 
     public String getRequest(InputStream inputStream) throws IOException {
-        return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        StringBuilder request = new StringBuilder();
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            request.append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
+            if (bytesRead < buffer.length) {
+                break;
+            }
+        }
+
+        return request.toString();
     }
 }

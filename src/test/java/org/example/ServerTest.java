@@ -33,17 +33,19 @@ class ServerTest {
     }
 
     @Test
-    void runListensForAConnection() throws InterruptedException {
+    void runListensForAConnection() {
         Thread thread = new Thread(() -> server.run());
         thread.start();
 
-        try(var socket = new Socket()) {
+        try (var socket = new Socket()) {
             assertDoesNotThrow(() -> socket.connect(server.socketAddress));
-        } catch (IOException ioe) {
-            System.out.println();
-        }
+            var outputStream = socket.getOutputStream();
+            outputStream.write("GET / HTTP/1.1 \r\n".getBytes());
+            outputStream.flush();
 
-        thread.join();
+        } catch (IOException ioe) {
+            fail("IOException occurred: " + ioe.getMessage());
+        }
     }
 
     @Test
@@ -57,13 +59,13 @@ class ServerTest {
     }
 
     @Test
-    void getPathReturnsSlash() throws IOException {
+    void getPathReturnsSlash() {
         var request = "GET / HTTP/1.1\r\n\r\n";
         assertEquals("/", server.getPath(request));
     }
 
     @Test
-    void getPathReturnsSlashHello() throws IOException {
+    void getPathReturnsSlashHello() {
         var request = "GET /hello HTTP/1.1\r\n\r\n";
         assertEquals("/hello", server.getPath(request));
     }
@@ -292,13 +294,13 @@ class ServerTest {
     }
 
     @Test
-    void getMethodReturnsGet() throws IOException {
+    void getMethodReturnsGet() {
         var request = "GET / HTTP/1.1";
         assertEquals("GET", server.getMethod(request));
     }
 
     @Test
-    void getMethodReturnsPost() throws IOException {
+    void getMethodReturnsPost() {
         var request = "POST / HTTP/1.1";
         assertEquals("POST", server.getMethod(request));
     }
