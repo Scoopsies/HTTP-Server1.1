@@ -3,6 +3,7 @@ package org.example;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -14,15 +15,10 @@ public class Server {
     public ServerSocket serverSocket;
     public SocketAddress socketAddress;
     public int port = 80;
-    public String root = "/Users/scoops/Projects/httpServer1.1/src/PathFiles";
+    public String root = ".";
     public Boolean isRunning = true;
 
     public Server() {
-        createServer();
-    }
-
-    public  Server(int portNumber) {
-        port = portNumber;
         createServer();
     }
 
@@ -55,18 +51,15 @@ public class Server {
         serverSocket.close();
     }
 
-    // new File("./blah") will look for blah/ in current working directory (where program was run from)
-    // new File("/blah") will look for blah/ in ROOT directory of system
-
     private String responseStatus(String status) {
         return "HTTP/1.1 " + status + CLRF;
     }
 
     public byte[] getResponse(InputStream inputStream) throws IOException, InterruptedException {
-        var filePath = getPath(inputStream);
+        var request = getRequest(inputStream);
+        var filePath = getPath(request);
         var indexHTML = new File(root + filePath + "/index.html");
         var file = new File(root + filePath);
-        String htmlContent = "Content-Type: text/html";
 
         ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
 
@@ -76,7 +69,7 @@ public class Server {
         }
 
         if (indexHTML.exists()) {
-            return buildResponse(responseStream, getContentType("index.html"), getFileContent(indexHTML));
+            return buildResponse(responseStream, getContentType(filePath + "index.html"), getFileContent(indexHTML));
         }
 
         if (file.isFile()){
@@ -84,11 +77,11 @@ public class Server {
         }
 
         if (file.isDirectory()) {
-            return buildResponse(responseStream, htmlContent, getDirectoryListing(file).getBytes());
+            return buildResponse(responseStream, getContentType(filePath), buildDirectoryListing(file).getBytes());
         }
 
         var fileNotFound = new File(root + "/404/index.html");
-        return buildResponse(responseStream, "404 Not Found", htmlContent, getFileContent(fileNotFound));
+        return buildResponse(responseStream, "404 Not Found", getContentType(filePath), getFileContent(fileNotFound));
     }
 
     private byte[] buildResponse(ByteArrayOutputStream responseStream, String status, String contentType, byte[] content) throws IOException {
@@ -110,31 +103,20 @@ public class Server {
         return time.format(formatter);
     }
 
-    public String getHeader(InputStream input) throws IOException {
-        var reader = new BufferedReader(new InputStreamReader(input));
-        return reader.readLine();
+    public String getPath(String request) throws IOException {
+       return splitHeader(request)[1];
     }
 
-    public String getPath(InputStream input) throws IOException {
-       return getHeader(input).split("\\s")[1];
+    public String getMethod(String request) throws IOException {
+        return splitHeader(request)[0];
     }
 
-    public String getFile(InputStream input) {
-        String path;
-        String result = "";
+    private String getHeader(String request) {
+        return request.split("\r\n")[0];
+    }
 
-        try {
-            path = root + getPath(input) + "/index.html";
-            var reader = new BufferedReader(new FileReader(path));
-            result = String.join("\n", reader.lines().toList());
-            reader.close();
-
-        } catch (IOException ioe) {
-            //noinspection CallToPrintStackTrace
-            ioe.printStackTrace();
-        }
-
-        return result;
+    private String[] splitHeader(String request) throws IOException {
+        return getHeader(request).split("\\s");
     }
 
     public byte[] getFileContent(File file) throws IOException {
@@ -150,7 +132,6 @@ public class Server {
     private boolean isTextFile(String extension) {
         return Objects.equals("html", extension) || Objects.equals("txt", extension);
     }
-
 
     public String getTextFileContent(File file) throws IOException {
         StringBuilder htmlContent = new StringBuilder();
@@ -174,13 +155,14 @@ public class Server {
         return Files.readAllBytes(path);
     }
 
-    public String getDirectoryListing(File directory) {
+    public String buildDirectoryListing(File directory) throws IOException {
         var listing = directory.list();
-        var path = directory.getPath().substring(root.length() + 1);
+        var rootPath = new File(root).getCanonicalPath();
+        var path = directory.getCanonicalPath().substring(rootPath.length());
         var stringBuilder = new StringBuilder();
 
-        stringBuilder.append("<h1>Directory Listing for /");
-        stringBuilder.append(directory.getName());
+        stringBuilder.append("<h1>Directory Listing for ");
+        stringBuilder.append(path);
         stringBuilder.append("</h1>\n");
         stringBuilder.append("<ul>\n");
 
@@ -224,6 +206,17 @@ public class Server {
     }
 
     public void parseArgs(String[] args) {
-        port = Integer.parseInt(args[1]);
+
+        for (int i = 0; i < args.length; i++) {
+            if (Objects.equals(args[i], "-p"))
+                port = Integer.parseInt(args[i + 1]);
+
+            if (Objects.equals(args[i], "-r"))
+                root = args[i + 1];
+        }
+    }
+
+    public String getRequest(InputStream inputStream) throws IOException {
+        return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
 }

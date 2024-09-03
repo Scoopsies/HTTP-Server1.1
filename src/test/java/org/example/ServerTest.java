@@ -28,18 +28,6 @@ class ServerTest {
     }
 
     @Test
-    void serverSocketCreatedAtPort5432() {
-        var server = new Server(5432);
-        assertEquals(5432, server.port);
-    }
-
-    @Test
-    void serverSocketCreatedAtPort3212() {
-        var server = new Server(3212);
-        assertEquals(3212, server.port);
-    }
-
-    @Test
     void localSocketAddressCreated() {
         assertEquals("0.0.0.0/0.0.0.0:80", server.socketAddress.toString());
     }
@@ -70,27 +58,16 @@ class ServerTest {
 
     @Test
     void getPathReturnsSlash() throws IOException {
-        var bais = new ByteArrayInputStream("GET / HTTP/1.1\r\n\r\n".getBytes());
-        assertEquals("/", server.getPath(bais));
+        var request = "GET / HTTP/1.1\r\n\r\n";
+        assertEquals("/", server.getPath(request));
     }
 
     @Test
     void getPathReturnsSlashHello() throws IOException {
-        var bais = new ByteArrayInputStream("GET /hello HTTP/1.1\r\n\r\n".getBytes());
-        assertEquals("/hello", server.getPath(bais));
+        var request = "GET /hello HTTP/1.1\r\n\r\n";
+        assertEquals("/hello", server.getPath(request));
     }
 
-    @Test
-    void getFileReturnsTextInHello() {
-        var bais = new ByteArrayInputStream("GET /hello HTTP/1.1\r\n\r\n".getBytes());
-        assertEquals("<h1>Hello!</h1>", server.getFile(bais));
-    }
-
-    @Test
-    void getFileReturnsTextInGoodBye() {
-        var bais = new ByteArrayInputStream("GET /goodbye HTTP/1.1\r\n\r\n".getBytes());
-        assertEquals("<h1>Goodbye</h1>", server.getFile(bais));
-    }
 
     @Test
     void getResponseHello() throws IOException, InterruptedException {
@@ -136,7 +113,7 @@ class ServerTest {
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
-                %s""".formatted(server.getDirectoryListing(directory));
+                %s""".formatted(server.buildDirectoryListing(directory));
         var result = new String(server.getResponse(inputStream));
         assertEquals(expected, result);
     }
@@ -162,38 +139,36 @@ class ServerTest {
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html\r
                 \r
-                %s""".formatted(server.getDirectoryListing(directory));
+                %s""".formatted(server.buildDirectoryListing(directory));
         var result = new String(server.getResponse(inputStream));
         assertEquals(expected, result);
     }
 
     @Test
-    void getDirectoryListingForThings() {
+    void getDirectoryListingForThings() throws IOException {
         var directory = new File(server.root + "/things");
         var result = """
         <h1>Directory Listing for /things</h1>
         <ul>
-        <li><a href="things/miata.pdf">miata.pdf</a></li>
-        <li><a href="things/miata.jpg">miata.jpg</a></li>
-        <li><a href="things/miata.png">miata.png</a></li>
-        <li><a href="things/miata.txt">miata.txt</a></li>
-        <li><a href="things/miata.gif">miata.gif</a></li>
+        <li><a href="/things/miata.pdf">miata.pdf</a></li>
+        <li><a href="/things/miata.jpg">miata.jpg</a></li>
+        <li><a href="/things/miata.png">miata.png</a></li>
+        <li><a href="/things/miata.txt">miata.txt</a></li>
+        <li><a href="/things/miata.gif">miata.gif</a></li>
         </ul>""";
-        assertEquals(result, server.getDirectoryListing(directory));
+        assertEquals(result, server.buildDirectoryListing(directory));
     }
 
     @Test
-    void getDirectoryListingForNoIndex() {
+    void getDirectoryListingForNoIndex() throws IOException {
         var directory = new File(server.root + "/noIndex");
-        var notIndexPath = "noIndex/notIndex.html";
-        var textTxtPath = "noIndex/text.txt";
         var result = """
         <h1>Directory Listing for /noIndex</h1>
         <ul>
-        <li><a href="%s">notIndex.html</a></li>
-        <li><a href="%s">text.txt</a></li>
-        </ul>""".formatted(notIndexPath, textTxtPath);
-        assertEquals(result, server.getDirectoryListing(directory));
+        <li><a href="/noIndex/notIndex.html">notIndex.html</a></li>
+        <li><a href="/noIndex/text.txt">text.txt</a></li>
+        </ul>""";
+        assertEquals(result, server.buildDirectoryListing(directory));
     }
 
     @Test
@@ -226,7 +201,7 @@ class ServerTest {
 
     @Test
     void getExtensionOfGetsHTML() {
-        assertEquals("html", server.getExtensionOf("index.html"));
+        assertEquals("html", server.getExtensionOf("welcome.html"));
         assertEquals("html", server.getExtensionOf("notIndex.html"));
     }
 
@@ -252,7 +227,7 @@ class ServerTest {
 
     @Test
     void getContentTypeReturnsHTML() {
-        assertEquals("Content-Type: text/html", server.getContentType("/hello/index.html"));
+        assertEquals("Content-Type: text/html", server.getContentType("/hello/welcome.html"));
     }
 
     @Test
@@ -292,6 +267,60 @@ class ServerTest {
         String[] args = {"-p", "800"};
         server.parseArgs(args);
         assertEquals(800, server.port);
+    }
+
+    @Test
+    void parseArgsSetsRootToHello() {
+        String[] args = {"-r", "./hello"};
+        server.parseArgs(args);
+        assertEquals("./hello", server.root);
+    }
+
+    @Test
+    void parseArgsSetsRootToGoodbye() {
+        String[] args = {"-r", "./goodbye"};
+        server.parseArgs(args);
+        assertEquals("./goodbye", server.root);
+    }
+
+    @Test
+    void parseArgsSetsRootToHelloAndPortTo8080() {
+        String[] args = {"-r", "./hello", "-p", "8080"};
+        server.parseArgs(args);
+        assertEquals("./hello", server.root);
+        assertEquals(8080, server.port);
+    }
+
+    @Test
+    void getMethodReturnsGet() throws IOException {
+        var request = "GET / HTTP/1.1";
+        assertEquals("GET", server.getMethod(request));
+    }
+
+    @Test
+    void getMethodReturnsPost() throws IOException {
+        var request = "POST / HTTP/1.1";
+        assertEquals("POST", server.getMethod(request));
+    }
+
+    @Test
+    void getRequestReturnsGetHello() throws IOException {
+        var result = """
+                GET /hello HTTP/1.1 \r
+                """;
+        var inputStream = new ByteArrayInputStream(result.getBytes());
+        assertEquals(result, server.getRequest(inputStream));
+    }
+
+    @Test
+    void getRequestReturnsPostHello() throws IOException {
+        var result = """
+                POST /hello HTTP/1.1 \r
+                \r
+                "message"
+                """;
+        var inputStream = new ByteArrayInputStream(result.getBytes());
+        assertEquals(result, server.getRequest(inputStream));
     }
 
 }
