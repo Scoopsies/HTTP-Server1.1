@@ -1,6 +1,5 @@
 package org.example;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,12 +14,10 @@ class ServerTest {
     @BeforeEach
     void setup() {
         server = new Server();
+        var baos = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(baos));
     }
 
-    @AfterEach
-    void cleanUp() throws IOException {
-        server.stop();
-    }
 
     @Test
     void serverSocketCreatedAtPort80byDefault() {
@@ -28,14 +25,16 @@ class ServerTest {
     }
 
     @Test
-    void localSocketAddressCreated() {
+    void localSocketAddressCreated() throws IOException, InterruptedException {
+        server.run();
+        Thread.sleep(10);
         assertEquals("0.0.0.0/0.0.0.0:80", server.socketAddress.toString());
+        server.stop();
     }
 
     @Test
-    void runListensForAConnection() {
-        Thread thread = new Thread(() -> server.run());
-        thread.start();
+    void runListensForAConnection() throws IOException {
+        server.run();
 
         try (var socket = new Socket()) {
             assertDoesNotThrow(() -> socket.connect(server.socketAddress));
@@ -46,15 +45,15 @@ class ServerTest {
         } catch (IOException ioe) {
             fail("IOException occurred: " + ioe.getMessage());
         }
+        server.stop();
     }
 
     @Test
-    void stopClosesTheConnectionToPort() throws InterruptedException, IOException {
-        Thread thread = new Thread(() -> server.run());
-        thread.start();
+    void stopClosesTheConnectionToPort() throws IOException, InterruptedException {
+        server.run();
+        Thread.sleep(10);
         assertFalse(server.serverSocket.isClosed());
         server.stop();
-        thread.join();
         assertTrue(server.serverSocket.isClosed());
     }
 
@@ -70,13 +69,13 @@ class ServerTest {
         assertEquals("/hello", server.getPath(request));
     }
 
-
     @Test
     void getResponseHello() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /hello HTTP/1.1".getBytes());
         var expected = """
                 HTTP/1.1 200 OK\r
-                Content-Type: text/html\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
                 \r
                 <h1>Hello!</h1>""";
         var result = new String(server.getResponse(inputStream));
@@ -88,7 +87,8 @@ class ServerTest {
         var inputStream = new ByteArrayInputStream("GET /goodbye HTTP/1.1".getBytes());
         var expected = """
                 HTTP/1.1 200 OK\r
-                Content-Type: text/html\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
                 \r
                 <h1>Goodbye</h1>""";
         var result = new String(server.getResponse(inputStream));
@@ -100,7 +100,8 @@ class ServerTest {
         var inputStream = new ByteArrayInputStream("GET /hamburger HTTP/1.1".getBytes());
         var expected = """
                 HTTP/1.1 404 Not Found\r
-                Content-Type: text/html\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
                 \r
                 <h1>404: This isn't the directory you are looking for.</h1>""";
         var result = new String(server.getResponse(inputStream));
@@ -113,7 +114,8 @@ class ServerTest {
         var directory = new File(server.root + "/noIndex");
         var expected ="""
                 HTTP/1.1 200 OK\r
-                Content-Type: text/html\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
                 \r
                 %s""".formatted(server.buildDirectoryListing(directory));
         var result = new String(server.getResponse(inputStream));
@@ -126,7 +128,8 @@ class ServerTest {
         var file = new File(server.root + "/noIndex/notIndex.html");
         var expected ="""
                 HTTP/1.1 200 OK\r
-                Content-Type: text/html\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
                 \r
                 %s""".formatted(server.getTextFileContent(file));
         var result = new String(server.getResponse(inputStream));
@@ -139,7 +142,8 @@ class ServerTest {
         var directory = new File(server.root + "/noIndex");
         var expected ="""
                 HTTP/1.1 200 OK\r
-                Content-Type: text/html\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
                 \r
                 %s""".formatted(server.buildDirectoryListing(directory));
         var result = new String(server.getResponse(inputStream));
@@ -149,54 +153,54 @@ class ServerTest {
     @Test
     void getDirectoryListingForThings() throws IOException {
         var directory = new File(server.root + "/things");
-        var result = """
-        <h1>Directory Listing for /things</h1>
-        <ul>
-        <li><a href="/things/miata.pdf">miata.pdf</a></li>
-        <li><a href="/things/miata.jpg">miata.jpg</a></li>
-        <li><a href="/things/miata.png">miata.png</a></li>
-        <li><a href="/things/miata.txt">miata.txt</a></li>
-        <li><a href="/things/miata.gif">miata.gif</a></li>
-        </ul>""";
+        var result =
+        "<h1>Directory Listing for ./things</h1>\n"
+        + "<ul>"
+        + "<li><a href=\"/things/miata.pdf\">miata.pdf</a></li>"
+        + "<li><a href=\"/things/miata.jpg\">miata.jpg</a></li>"
+        + "<li><a href=\"/things/miata.png\">miata.png</a></li>"
+        + "<li><a href=\"/things/miata.txt\">miata.txt</a></li>"
+        + "<li><a href=\"/things/miata.gif\">miata.gif</a></li>"
+        + "</ul>";
         assertEquals(result, server.buildDirectoryListing(directory));
     }
 
     @Test
     void getDirectoryListingForNoIndex() throws IOException {
         var directory = new File(server.root + "/noIndex");
-        var result = """
-        <h1>Directory Listing for /noIndex</h1>
-        <ul>
-        <li><a href="/noIndex/notIndex.html">notIndex.html</a></li>
-        <li><a href="/noIndex/text.txt">text.txt</a></li>
-        </ul>""";
+        var result =
+        "<h1>Directory Listing for ./noIndex</h1>\n"
+        + "<ul>"
+        + "<li><a href=\"/noIndex/notIndex.html\">notIndex.html</a></li>"
+        + "<li><a href=\"/noIndex/text.txt\">text.txt</a></li>"
+        + "</ul>";
         assertEquals(result, server.buildDirectoryListing(directory));
     }
 
     @Test
     void getHTMLContentReturnsHello() throws IOException {
-        var file = new File(server.root + "/hello/index.html");
+        var file = new File("./hello/index.html");
         var result = "<h1>Hello!</h1>";
         assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsGoodbye() throws IOException {
-        var file = new File(server.root + "/goodbye/index.html");
+        var file = new File("./goodbye/index.html");
         var result = "<h1>Goodbye</h1>";
         assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsNoIndex() throws IOException {
-        var file = new File(server.root + "/noIndex/notIndex.html");
+        var file = new File("./noIndex/notIndex.html");
         var result = "<h1>Not Index.html</h1>";
         assertEquals(result, server.getTextFileContent(file));
     }
 
     @Test
     void getHTMLContentReturnsGoodBye2() throws IOException {
-        var file = new File(server.root + "/goodbye/goodbye2/index.html");
+        var file = new File("./goodbye/goodbye2/index.html");
         var result = "<h1>goodbye2</h1>\n<p>Bonus Line</p>";
         assertEquals(result, server.getTextFileContent(file));
     }
@@ -229,32 +233,32 @@ class ServerTest {
 
     @Test
     void getContentTypeReturnsHTML() {
-        assertEquals("Content-Type: text/html", server.getContentType("/hello/welcome.html"));
+        assertEquals("Content-Type: text/html\n", server.getContentType("/hello/welcome.html"));
     }
 
     @Test
     void getContentTypeReturnsPNG() {
-        assertEquals("Content-Type: image/png", server.getContentType("/things/miata.png"));
+        assertEquals("Content-Type: image/png\n", server.getContentType("/things/miata.png"));
     }
 
     @Test
     void getContentTypeReturnsGIF() {
-        assertEquals("Content-Type: image/gif", server.getContentType("/things/miata.gif"));
+        assertEquals("Content-Type: image/gif\n", server.getContentType("/things/miata.gif"));
     }
 
     @Test
     void getContentTypeReturnsJPEG() {
-        assertEquals("Content-Type: image/jpeg", server.getContentType("/things/miata.jpeg"));
+        assertEquals("Content-Type: image/jpeg\n", server.getContentType("/things/miata.jpeg"));
     }
 
     @Test
     void getContentTypeReturnsPDF() {
-        assertEquals("Content-Type: application/pdf", server.getContentType("/things/miata.pdf"));
+        assertEquals("Content-Type: application/pdf\n", server.getContentType("/things/miata.pdf"));
     }
 
     @Test
     void getContentTypeReturnsHtmlForDirectory() {
-        assertEquals("Content-Type: text/html", server.getContentType("/things"));
+        assertEquals("Content-Type: text/html\n", server.getContentType("/things"));
     }
 
     @Test

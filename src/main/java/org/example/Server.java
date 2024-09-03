@@ -17,26 +17,32 @@ public class Server {
     public int port = 80;
     public String root = ".";
     public Boolean isRunning = true;
+    private GuessingGame guessingGame = new GuessingGame();
+    private Thread thread;
 
-    public Server() {
-        createServer();
+
+    public Server() {}
+
+    public void run() {
+        printStartupConfig();
+        thread = new Thread(this::handleIO);
+        thread.start();
     }
 
-    private void createServer() {
+    public void handleIO() {
         try {
-            serverSocket = new ServerSocket(port);
+            this.serverSocket = new ServerSocket(port);
             socketAddress = serverSocket.getLocalSocketAddress();
         } catch (IOException ioe) {
             System.out.println(ioe.getMessage());
         }
-    }
 
-    public void run() {
         while (isRunning) {
             try {
-                var clientSocket = serverSocket.accept();
+                var clientSocket = this.serverSocket.accept();
                 var in = clientSocket.getInputStream();
                 var out = clientSocket.getOutputStream();
+
                 var response = getResponse(in);
                 out.write(response);
                 clientSocket.close();
@@ -48,7 +54,8 @@ public class Server {
 
     public void stop() throws IOException {
         isRunning = false;
-        serverSocket.close();
+        thread = null;
+        this.serverSocket.close();
     }
 
     private String responseStatus(String status) {
@@ -58,6 +65,7 @@ public class Server {
     public byte[] getResponse(InputStream inputStream) throws IOException, InterruptedException {
         var request = getRequest(inputStream);
         var filePath = getPath(request);
+        var httpMethod = getMethod(request);
         var indexHTML = new File(root + filePath + "/index.html");
         var file = new File(root + filePath);
 
@@ -66,6 +74,25 @@ public class Server {
         if (filePath.endsWith("/ping")) {
             Thread.sleep(1000);
             return buildResponse(responseStream, getContentType("index.html"), getCurrentTime().getBytes());
+        }
+
+        if (filePath.endsWith("/guess")) {
+
+            if (Objects.equals("POST", httpMethod)) {
+                var requestArray = request.split(CLRF);
+                var clientGuess = requestArray[requestArray.length - 1].split("=")[1];
+                var guessResponse = guessingGame.handleGuess(Integer.parseInt(clientGuess));
+                return buildResponse(responseStream, getContentType(filePath + "index.html"), getTextFileContent(indexHTML).formatted("<p>"+ guessResponse +"</p>").getBytes());
+            }
+
+            guessingGame = new GuessingGame();
+            return buildResponse(responseStream, getContentType(filePath + "index.html"), getTextFileContent(indexHTML).formatted("<p>Pick a number 1 - 100</p>").getBytes());
+        }
+
+        if (filePath.startsWith("/listing")) {
+            filePath = filePath.replace("/listing", root);
+            var listing = new File( filePath);
+            return buildResponse(responseStream, getContentType(filePath), buildDirectoryListing(listing).getBytes());
         }
 
         if (indexHTML.exists()) {
@@ -80,13 +107,14 @@ public class Server {
             return buildResponse(responseStream, getContentType(filePath), buildDirectoryListing(file).getBytes());
         }
 
-        var fileNotFound = new File(root + "/404/index.html");
+        var fileNotFound = new File("/Users/scoops/Projects/httpServer1.1/404/index.html");
         return buildResponse(responseStream, "404 Not Found", getContentType(filePath), getFileContent(fileNotFound));
     }
 
     private byte[] buildResponse(ByteArrayOutputStream responseStream, String status, String contentType, byte[] content) throws IOException {
         responseStream.write(responseStatus(status).getBytes());
         responseStream.write(contentType.getBytes());
+        responseStream.write("Server: httpServer1.1".getBytes());
         responseStream.write(CLRF.getBytes());
         responseStream.write(CLRF.getBytes());
         responseStream.write(content);
@@ -158,27 +186,26 @@ public class Server {
     public String buildDirectoryListing(File directory) throws IOException {
         var listing = directory.list();
         var rootPath = new File(root).getCanonicalPath();
-        var path = directory.getCanonicalPath().substring(rootPath.length());
+        var path = directory.getCanonicalPath().replace(rootPath, ".");
         var stringBuilder = new StringBuilder();
 
         stringBuilder.append("<h1>Directory Listing for ");
         stringBuilder.append(path);
-        stringBuilder.append("</h1>\n");
-        stringBuilder.append("<ul>\n");
+        stringBuilder.append("</h1>\n<ul>");
 
         assert listing != null;
         for (String fileName : listing) {
-            stringBuilder.append("<li>");
-            stringBuilder.append("<a href=\"");
-            stringBuilder.append(path);
-            stringBuilder.append("/");
-            stringBuilder.append(fileName);
+            var currentFile = new File(directory.getPath()  + "/" + fileName);
+            var currentFilePath = currentFile.getCanonicalPath().replace(rootPath, "");
+
+            stringBuilder.append("<li><a href=\"");
+            if (currentFile.isDirectory())
+                stringBuilder.append("/listing");
+            stringBuilder.append(currentFilePath);
             stringBuilder.append("\">");
             stringBuilder.append(fileName);
-            stringBuilder.append("</a>");
-            stringBuilder.append("</li>\n");
+            stringBuilder.append("</a></li>");
         }
-
         stringBuilder.append("</ul>");
 
         return stringBuilder.toString();
@@ -197,7 +224,7 @@ public class Server {
             System.out.println(ioe.getMessage());
         }
 
-        return "Content-Type: " + contentType;
+        return "Content-Type: " + contentType + "\n";
     }
 
     public String getExtensionOf(String path) {
@@ -206,6 +233,7 @@ public class Server {
     }
 
     public void parseArgs(String[] args) {
+        boolean isPrintingConfig = false;
 
         for (int i = 0; i < args.length; i++) {
             if (Objects.equals(args[i], "-p"))
@@ -213,12 +241,29 @@ public class Server {
 
             if (Objects.equals(args[i], "-r"))
                 root = args[i + 1];
+
+            if (Objects.equals(args[i], "-h")) {
+                isRunning = false;
+                System.out.println("  -p     Specify the port.  Default is 80.");
+                System.out.println("  -r     Specify the root directory.  Default is the current working directory.");
+                System.out.println("  -h     Print this help message");
+                System.out.println("  -x     Print the startup configuration without starting the server");
+            }
+
+            if (Objects.equals(args[i], "-x")) {
+                isRunning = false;
+                isPrintingConfig = true;
+            }
+
         }
+        
+        if (isPrintingConfig)
+            printStartupConfig();
     }
 
     public String getRequest(InputStream inputStream) throws IOException {
         StringBuilder request = new StringBuilder();
-        byte[] buffer = new byte[1024];
+        byte[] buffer = new byte[1000];
         int bytesRead;
 
         while ((bytesRead = inputStream.read(buffer)) != -1) {
@@ -229,5 +274,19 @@ public class Server {
         }
 
         return request.toString();
+    }
+
+    private void printStartupConfig() {
+        var file = new File(root);
+        String path;
+
+        try {
+            path = file.getCanonicalPath();
+        } catch (IOException ioe) {
+            path = ".";
+        }
+        System.out.println("Example Server");
+        System.out.println("Running on port: " + port);
+        System.out.println("Serving files from: " + path);
     }
 }
