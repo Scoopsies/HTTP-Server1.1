@@ -108,8 +108,7 @@ public class Server {
 
         if (filePath.startsWith("/form")) {
             if (Objects.equals("POST",getMethod(request))) {
-                System.out.println(parsedRequest.get("header"));
-                System.out.println(parsedRequest.get("header").length());
+                System.out.println(parsedRequest.get("body"));
                 var contentType = parsedRequest.get("Content-Type");
                 var html = """
                         <h2>POST Form</h2>
@@ -202,7 +201,12 @@ public class Server {
         result.put("body", getBody(request));
         result.put("path", getPath(request));
         result.put("method", getMethod(request));
+        addHeaderLines(result, request);
 
+        return result;
+    }
+
+    private void addHeaderLines(HashMap<String, String> result, String request) {
         var headerLines = request.split("\r\n");
         for (int i = 1; i < headerLines.length; i++) {
             var headerLine = headerLines[i].split(": ", 2);
@@ -212,9 +216,6 @@ public class Server {
                 result.put(key, value);
             }
         }
-
-
-        return result;
     }
 
     public String getPath(String request) {
