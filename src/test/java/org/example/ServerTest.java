@@ -13,6 +13,15 @@ class ServerTest {
     private Server server;
     private PrintStream stdOut;
     private ByteArrayOutputStream baos;
+    final private String request = """
+                GET /hello HTTP/1.1\r
+                Content-Type: text/html\r
+                Server: httpServer1.1\r
+                \r
+                <h2>GET Form</h2>
+                <li>foo: 1</li>
+                <li>bar: 2</li>
+                """;
 
     @BeforeEach
     void setup() {
@@ -35,7 +44,7 @@ class ServerTest {
     @Test
     void localSocketAddressCreated() throws IOException, InterruptedException {
         server.run();
-        Thread.sleep(10);
+        Thread.sleep(5);
         assertEquals("0.0.0.0/0.0.0.0:80", server.getSocket().getLocalSocketAddress().toString());
         server.stop();
     }
@@ -61,7 +70,7 @@ class ServerTest {
     @Test
     void stopClosesTheConnectionToPort() throws IOException, InterruptedException {
         server.run();
-        Thread.sleep(10);
+        Thread.sleep(5);
         assertFalse(server.getSocket().isClosed());
         server.stop();
         assertTrue(server.getSocket().isClosed());
@@ -475,5 +484,60 @@ class ServerTest {
                 <li>end time: %s</li>
                 """.formatted(time, time);
         assertEquals(response, new String(server.getResponse(input)));
+    }
+
+    @Test
+    void parseRequestPutsHeaderInMap() {
+        var header = """
+                GET /hello HTTP/1.1\r
+                Content-Type: text/html\r
+                Server: httpServer1.1""";
+
+        var requestMap = server.parseRequest(request);
+        assertEquals(header, requestMap.get("header"));
+    }
+
+    @Test
+    void parseRequestPutsStartLineInMap() {
+        var startLine = "GET /hello HTTP/1.1";
+
+        var requestMap = server.parseRequest(request);
+        assertEquals(startLine, requestMap.get("startLine"));
+    }
+
+    @Test
+    void parseRequestPutsBodyInMap() {
+        var body = """
+                <h2>GET Form</h2>
+                <li>foo: 1</li>
+                <li>bar: 2</li>
+                """;
+
+        var requestMap = server.parseRequest(request);
+        assertEquals(body, requestMap.get("body"));
+    }
+
+    @Test
+    void parseRequestPutsTargetInMap() {
+        var path = "/hello";
+
+        var requestMap = this.server.parseRequest(request);
+        assertEquals(path, requestMap.get("path"));
+    }
+
+    @Test
+    void parseRequestPutsMethodInMap() {
+        var method = "GET";
+
+        var requestMap = this.server.parseRequest(request);
+        assertEquals(method, requestMap.get("method"));
+    }
+
+    @Test
+    void parseRequestPutsServerInMap() {
+        var server = "httpServer1.1";
+
+        var requestMap = this.server.parseRequest(request);
+        assertEquals(server, requestMap.get("Server"));
     }
 }

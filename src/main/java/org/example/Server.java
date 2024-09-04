@@ -129,7 +129,7 @@ public class Server {
 
     public String getRequest(InputStream inputStream) throws IOException {
         StringBuilder request = new StringBuilder();
-        byte[] buffer = new byte[1000];
+        byte[] buffer = new byte[16384];
         int bytesRead;
 
         while ((bytesRead = inputStream.read(buffer)) != -1) {
@@ -179,20 +179,54 @@ public class Server {
         return time.format(formatter);
     }
 
+    public HashMap<String, String> parseRequest(String request) {
+        var result = new HashMap<String, String>();
+        result.put("header", getHeader(request));
+        result.put("startLine", getStartLine(request));
+        result.put("body", getBody(request));
+        result.put("path", getPath(request));
+        result.put("method", getMethod(request));
+
+        var headerLines = request.split("\r\n");
+        for (int i = 1; i < headerLines.length; i++) {
+            var headerLine = headerLines[i].split(": ", 2);
+            if (Objects.equals(2, headerLine.length)) {
+                var key = headerLine[0];
+                var value = headerLine[1];
+                result.put(key, value);
+            }
+        }
+
+
+        return result;
+    }
+
     public String getPath(String request) {
-       return splitHeader(request)[1];
+        return splitStartLine(request)[1];
     }
 
     public String getMethod(String request) {
-        return splitHeader(request)[0];
+        return splitStartLine(request)[0];
     }
 
-    private String getHeader(String request) {
+    private String getStartLine(String request) {
         return request.split("\r\n")[0];
     }
 
-    private String[] splitHeader(String request) {
-        return getHeader(request).split("\\s");
+    private String[] splitStartLine(String request) {
+        return getStartLine(request).split("\\s");
+    }
+
+    private String getHeader(String request) {
+        return request.split("\r\n\r\n", 2)[0];
+    }
+
+    private String getBody(String request) {
+        try {
+            return request.split("\r\n\r\n", 2)[1];
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private byte[] getFileContent(File file) throws IOException {
