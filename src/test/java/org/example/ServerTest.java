@@ -420,7 +420,7 @@ class ServerTest {
 
     @Test
     void formPathReturnsFoo1Bar2() throws IOException, InterruptedException {
-        var header = "POST /form?foo=1&bar=2 HTTP/1.1\r\n";
+        var header = "GET /form?foo=1&bar=2 HTTP/1.1\r\n";
         var input = new ByteArrayInputStream(header.getBytes());
         var response = """
                 HTTP/1.1 200 OK\r
@@ -436,7 +436,7 @@ class ServerTest {
 
     @Test
     void formPathReturnsFoo2Bar3() throws IOException, InterruptedException {
-        var header = "POST /form?foo=2&bar=3 HTTP/1.1\r\n";
+        var header = "GET /form?foo=2&bar=3 HTTP/1.1\r\n";
         var input = new ByteArrayInputStream(header.getBytes());
         var response = """
                 HTTP/1.1 200 OK\r

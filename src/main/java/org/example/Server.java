@@ -65,7 +65,8 @@ public class Server {
 
     public byte[] getResponse(InputStream inputStream) throws IOException, InterruptedException {
         var request = getRequest(inputStream);
-        var filePath = getPath(request);
+        var parsedRequest = parseRequest(request);
+        var filePath = parsedRequest.get("path");
         var indexHTML = new File(root + filePath + "/index.html");
         var file = new File(root + filePath);
         var responseStream = new ByteArrayOutputStream();
@@ -101,14 +102,29 @@ public class Server {
 
         if (filePath.startsWith("/listing")) {
             filePath = filePath.replace("/listing", root);
-            return buildResponse(responseStream, buildDirectoryListing(filePath).getBytes());
+            if (new File(filePath).isDirectory())
+                return buildResponse(responseStream, buildDirectoryListing(filePath).getBytes());
         }
 
         if (filePath.startsWith("/form")) {
+            if (Objects.equals("POST",getMethod(request))) {
+                System.out.println(parsedRequest.get("header"));
+                System.out.println(parsedRequest.get("header").length());
+                var contentType = parsedRequest.get("Content-Type");
+                var html = """
+                        <h2>POST Form</h2>
+                        <li>File name: %s</li>
+                        <li>content type: %s</li>
+                        <li>file size: %s</li>
+                        """.formatted("idk", contentType, "idk");
+
+                return buildResponse(responseStream, html.getBytes());
+            }
+
             var queryMap = parseQuery(filePath);
             var template = getTextFileContent("/Users/scoops/Projects/httpServer1.1/form/getTemplate.html");
-            var response = template.formatted(queryMap.get("foo"), queryMap.get("bar")).getBytes();
-            return buildResponse(responseStream, response);
+            var response = template.formatted(queryMap.get("foo"), queryMap.get("bar"));
+            return buildResponse(responseStream, response.getBytes());
         }
 
         if (indexHTML.exists()) {
