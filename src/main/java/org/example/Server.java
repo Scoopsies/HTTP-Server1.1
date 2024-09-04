@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Objects;
 
 public class Server {
@@ -85,7 +86,6 @@ public class Server {
                 timeToSleep = 0;
             }
 
-            System.out.println(sleepModifier);
             var html = "<h2>Ping</h2>\n" + "<li>start time: " + getCurrentTime() + "</li>";
             Thread.sleep(timeToSleep);
             html += "<li>end time: " + getCurrentTime() + "</li>";
@@ -108,7 +108,22 @@ public class Server {
         if (filePath.startsWith("/listing")) {
             filePath = filePath.replace("/listing", root);
             var listing = new File( filePath);
-            return buildResponse(responseStream, getContentType(filePath), buildDirectoryListing(listing).getBytes());
+            return buildResponse(
+                    responseStream,
+                    getContentType(filePath),
+                    buildDirectoryListing(listing).getBytes());
+        }
+
+        if (filePath.startsWith("/form")) {
+
+            var queryMap = parseQuery(filePath);
+            var response = """
+                <h2>GET Form</h2>
+                <li>foo: %s</li>
+                <li>bar: %s</li>
+                """.formatted(queryMap.get("foo"), queryMap.get("bar")).getBytes();
+            return buildResponse(responseStream, getContentType("index.html"), response);
+
         }
 
         if (indexHTML.exists()) {
@@ -125,6 +140,19 @@ public class Server {
 
         var fileNotFound = new File("/Users/scoops/Projects/httpServer1.1/404/index.html");
         return buildResponse(responseStream, "404 Not Found", getContentType(filePath), getFileContent(fileNotFound));
+    }
+
+    private HashMap<String, String> parseQuery(String filePath) {
+        var queryMap = new HashMap<String, String>();
+        var query = filePath.split("\\?");
+        if (query.length > 1) {
+            var queryArray = query[1].replace("=", " ").replace("&", " ").split("\\s");
+            for (int i = 0; i < queryArray.length; i += 2) {
+                queryMap.put(queryArray[i], queryArray[i + 1]);
+            }
+        }
+
+        return queryMap;
     }
 
     private byte[] buildResponse(ByteArrayOutputStream responseStream, String status, String contentType, byte[] content) throws IOException {

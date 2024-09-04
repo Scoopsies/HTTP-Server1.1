@@ -14,8 +14,8 @@ class ServerTest {
     @BeforeEach
     void setup() {
         server = new Server();
-        var baos = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(baos));
+//        var baos = new ByteArrayOutputStream();
+//        System.setOut(new PrintStream(baos));
     }
 
 
@@ -330,6 +330,38 @@ class ServerTest {
                 """;
         var inputStream = new ByteArrayInputStream(result.getBytes());
         assertEquals(result, server.getRequest(inputStream));
+    }
+
+    @Test
+    void formPathReturnsFoo1Bar2() throws IOException, InterruptedException {
+        var header = "POST /form?foo=1&bar=2 HTTP/1.1\r\n";
+        var input = new ByteArrayInputStream(header.getBytes());
+        var response = """
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
+                \r
+                <h2>GET Form</h2>
+                <li>foo: 1</li>
+                <li>bar: 2</li>
+                """;
+        assertEquals(response, new String(server.getResponse(input)));
+    }
+
+    @Test
+    void formPathReturnsFoo2Bar3() throws IOException, InterruptedException {
+        var header = "POST /form?foo=2&bar=3 HTTP/1.1\r\n";
+        var input = new ByteArrayInputStream(header.getBytes());
+        var response = """
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
+                \r
+                <h2>GET Form</h2>
+                <li>foo: 2</li>
+                <li>bar: 3</li>
+                """;
+        assertEquals(response, new String(server.getResponse(input)));
     }
 
 }
