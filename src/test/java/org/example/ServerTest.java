@@ -29,14 +29,14 @@ class ServerTest {
 
     @Test
     void serverSocketCreatedAtPort80byDefault() {
-        assertEquals(80, server.port);
+        assertEquals(80, server.getPort());
     }
 
     @Test
     void localSocketAddressCreated() throws IOException, InterruptedException {
         server.run();
         Thread.sleep(10);
-        assertEquals("0.0.0.0/0.0.0.0:80", server.serverSocket.getLocalSocketAddress().toString());
+        assertEquals("0.0.0.0/0.0.0.0:80", server.getSocket().getLocalSocketAddress().toString());
         server.stop();
     }
 
@@ -45,7 +45,7 @@ class ServerTest {
         server.run();
         Thread.sleep(5);
 
-        var socketAddress = server.serverSocket.getLocalSocketAddress();
+        var socketAddress = server.getSocket().getLocalSocketAddress();
         try (var socket = new Socket()) {
             assertDoesNotThrow(() -> socket.connect(socketAddress));
             var outputStream = socket.getOutputStream();
@@ -62,9 +62,9 @@ class ServerTest {
     void stopClosesTheConnectionToPort() throws IOException, InterruptedException {
         server.run();
         Thread.sleep(10);
-        assertFalse(server.serverSocket.isClosed());
+        assertFalse(server.getSocket().isClosed());
         server.stop();
-        assertTrue(server.serverSocket.isClosed());
+        assertTrue(server.getSocket().isClosed());
     }
 
     @Test
@@ -124,7 +124,7 @@ class ServerTest {
     @Test
     void getResponseForNoIndex() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
-        var directory = new File(server.root + "/noIndex");
+        var directory = new File(server.getRoot() + "/noIndex");
         var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html
@@ -138,7 +138,7 @@ class ServerTest {
     @Test
     void getResponseForNotIndexHTML() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /noIndex/notIndex.html HTTP/1.1".getBytes());
-        var file = new File(server.root + "/noIndex/notIndex.html");
+        var file = new File(server.getRoot() + "/noIndex/notIndex.html");
         var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html
@@ -152,7 +152,7 @@ class ServerTest {
     @Test
     void getResponseForThings() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
-        var directory = new File(server.root + "/noIndex");
+        var directory = new File(server.getRoot() + "/noIndex");
         var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html
@@ -166,7 +166,7 @@ class ServerTest {
     @Test
     void getResponseForListing() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /listing HTTP/1.1".getBytes());
-        var directory = new File(server.root);
+        var directory = new File(server.getRoot());
         var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html
@@ -180,7 +180,7 @@ class ServerTest {
     @Test
     void getResponseForListingHello() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /listing/hello HTTP/1.1".getBytes());
-        var directory = new File(server.root + "/hello");
+        var directory = new File(server.getRoot() + "/hello");
         var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html
@@ -193,7 +193,7 @@ class ServerTest {
 
     @Test
     void getDirectoryListingForThings() throws IOException {
-        var directory = new File(server.root + "/things");
+        var directory = new File(server.getRoot() + "/things");
         var result =
         "<h1>Directory Listing for ./things</h1>\n"
         + "<ul>"
@@ -208,7 +208,7 @@ class ServerTest {
 
     @Test
     void getDirectoryListingForNoIndex() throws IOException {
-        var directory = new File(server.root + "/noIndex");
+        var directory = new File(server.getRoot() + "/noIndex");
         var result =
         "<h1>Directory Listing for ./noIndex</h1>\n"
         + "<ul>"
@@ -306,36 +306,36 @@ class ServerTest {
     void parseArgsSetsPort8080() {
         String[] args = {"-p", "8080"};
         server.parseArgs(args);
-        assertEquals(8080, server.port);
+        assertEquals(8080, server.getPort());
     }
 
     @Test
     void parseArgsSetsPort800() {
         String[] args = {"-p", "800"};
         server.parseArgs(args);
-        assertEquals(800, server.port);
+        assertEquals(800, server.getPort());
     }
 
     @Test
     void parseArgsSetsRootToHello() {
         String[] args = {"-r", "./hello"};
         server.parseArgs(args);
-        assertEquals("./hello", server.root);
+        assertEquals("./hello", server.getRoot());
     }
 
     @Test
     void parseArgsSetsRootToGoodbye() {
         String[] args = {"-r", "./goodbye"};
         server.parseArgs(args);
-        assertEquals("./goodbye", server.root);
+        assertEquals("./goodbye", server.getRoot());
     }
 
     @Test
     void parseArgsSetsRootToHelloAndPortTo8080() {
         String[] args = {"-r", "./hello", "-p", "8080"};
         server.parseArgs(args);
-        assertEquals("./hello", server.root);
-        assertEquals(8080, server.port);
+        assertEquals("./hello", server.getRoot());
+        assertEquals(8080, server.getPort());
     }
 
     @Test

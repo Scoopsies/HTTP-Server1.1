@@ -11,10 +11,10 @@ import java.util.HashMap;
 import java.util.Objects;
 
 public class Server {
-    public static final String CLRF = "\r\n";
-    public ServerSocket serverSocket;
-    public int port = 80;
-    public String root = ".";
+    private static final String CLRF = "\r\n";
+    private ServerSocket serverSocket;
+    private int port = 80;
+    private String root = ".";
     public Boolean isRunnable = true;
     private GuessingGame guessingGame = new GuessingGame();
 
@@ -66,13 +66,12 @@ public class Server {
     public byte[] getResponse(InputStream inputStream) throws IOException, InterruptedException {
         var request = getRequest(inputStream);
         var filePath = getPath(request);
-        var httpMethod = getMethod(request);
         var indexHTML = new File(root + filePath + "/index.html");
         var file = new File(root + filePath);
-
-        ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
+        var responseStream = new ByteArrayOutputStream();
 
         if (filePath.startsWith("/ping")) {
+            var template = getTextFileContent("/Users/scoops/Projects/httpServer1.1/ping/index.html");
             var sleepModifier = filePath.replace("/ping/", "");
             int timeToSleep;
 
@@ -82,48 +81,38 @@ public class Server {
                 timeToSleep = 0;
             }
 
-            var html = "<h2>Ping</h2>\n" + "<li>start time: " + getCurrentTime() + "</li>\n";
+            var html = template.formatted(getCurrentTime(), "%s");
             Thread.sleep(timeToSleep);
-            html += "<li>end time: " + getCurrentTime() + "</li>\n";
-            return buildResponse(responseStream, getContentType("index.html"), html.getBytes());
+            html = html.formatted(getCurrentTime());
+            return buildResponse(responseStream, html.getBytes());
         }
 
-        if (filePath.endsWith("/guess")) {
-
-            if (Objects.equals("POST", httpMethod)) {
+        if (filePath.startsWith("/guess")) {
+            if (Objects.equals("POST", getMethod(request))) {
                 var requestArray = request.split(CLRF);
                 var clientGuess = requestArray[requestArray.length - 1].split("=")[1];
                 var guessResponse = guessingGame.handleGuess(Integer.parseInt(clientGuess));
-                return buildResponse(responseStream, getContentType(filePath + "index.html"), getTextFileContent(indexHTML).formatted("<p>"+ guessResponse +"</p>").getBytes());
+                return buildResponse(responseStream, getTextFileContent(indexHTML).formatted("<p>"+ guessResponse +"</p>").getBytes());
             }
-
             guessingGame = new GuessingGame();
-            return buildResponse(responseStream, getContentType(filePath + "index.html"), getTextFileContent(indexHTML).formatted("<p>Pick a number 1 - 100</p>").getBytes());
+
+            return buildResponse(responseStream, getTextFileContent(indexHTML).formatted("<p>Pick a number 1 - 100</p>").getBytes());
         }
 
         if (filePath.startsWith("/listing")) {
             filePath = filePath.replace("/listing", root);
-            var listing = new File( filePath);
-            return buildResponse(
-                    responseStream,
-                    getContentType(filePath),
-                    buildDirectoryListing(listing).getBytes());
+            return buildResponse(responseStream, buildDirectoryListing(filePath).getBytes());
         }
 
         if (filePath.startsWith("/form")) {
-
             var queryMap = parseQuery(filePath);
-            var response = """
-                <h2>GET Form</h2>
-                <li>foo: %s</li>
-                <li>bar: %s</li>
-                """.formatted(queryMap.get("foo"), queryMap.get("bar")).getBytes();
-            return buildResponse(responseStream, getContentType("index.html"), response);
-
+            var template = getTextFileContent("/Users/scoops/Projects/httpServer1.1/form/getTemplate.html");
+            var response = template.formatted(queryMap.get("foo"), queryMap.get("bar")).getBytes();
+            return buildResponse(responseStream, response);
         }
 
         if (indexHTML.exists()) {
-            return buildResponse(responseStream, getContentType(filePath + "index.html"), getFileContent(indexHTML));
+            return buildResponse(responseStream, getFileContent(indexHTML));
         }
 
         if (file.isFile()){
@@ -131,7 +120,7 @@ public class Server {
         }
 
         if (file.isDirectory()) {
-            return buildResponse(responseStream, getContentType(filePath), buildDirectoryListing(file).getBytes());
+            return buildResponse(responseStream, buildDirectoryListing(file).getBytes());
         }
 
         var fileNotFound = new File("/Users/scoops/Projects/httpServer1.1/404/index.html");
@@ -180,6 +169,10 @@ public class Server {
         return buildResponse(responseStream, "200 OK", contentType, content);
     }
 
+    private byte[] buildResponse(ByteArrayOutputStream responseStream, byte[] content) throws IOException {
+        return buildResponse(responseStream, "200 OK", "Content-Type: text/html\n", content);
+    }
+
     public String getCurrentTime() {
         var time = LocalDateTime.now();
         var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -204,10 +197,8 @@ public class Server {
 
     private byte[] getFileContent(File file) throws IOException {
         String extension = getExtensionOf(file.getName());
-
         if (isTextFile(extension))
             return getTextFileContent(file).getBytes();
-
         return getBinaryFileContent(file);
     }
 
@@ -231,6 +222,11 @@ public class Server {
         }
 
         return htmlContent.toString();
+    }
+
+    public String getTextFileContent(String filePath) throws IOException {
+        var file = new File(filePath);
+        return getTextFileContent(file);
     }
 
     public byte[] getBinaryFileContent(File file) throws IOException {
@@ -266,6 +262,11 @@ public class Server {
         return stringBuilder.toString();
     }
 
+    public String buildDirectoryListing(String filePath) throws IOException {
+        return buildDirectoryListing(new File( filePath));
+    }
+
+
     public String getContentType(String pathString) {
         var path = Path.of(pathString);
         String contentType;
@@ -299,21 +300,24 @@ public class Server {
 
             if (Objects.equals(args[i], "-h")) {
                 isRunnable = false;
-                System.out.println("  -p     Specify the port.  Default is 80.");
-                System.out.println("  -r     Specify the root directory.  Default is the current working directory.");
-                System.out.println("  -h     Print this help message");
-                System.out.println("  -x     Print the startup configuration without starting the server");
+                printHelpMenu();
             }
 
             if (Objects.equals(args[i], "-x")) {
                 isRunnable = false;
                 isPrintingConfig = true;
             }
-
         }
         
         if (isPrintingConfig)
             printStartupConfig();
+    }
+
+    private void printHelpMenu() {
+        System.out.println("  -p     Specify the port.  Default is 80.");
+        System.out.println("  -r     Specify the root directory.  Default is the current working directory.");
+        System.out.println("  -h     Print this help message");
+        System.out.println("  -x     Print the startup configuration without starting the server");
     }
 
     private void printStartupConfig() {
@@ -328,5 +332,17 @@ public class Server {
         System.out.println("Example Server");
         System.out.println("Running on port: " + port);
         System.out.println("Serving files from: " + path);
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public ServerSocket getSocket() {
+        return serverSocket;
+    }
+
+    public String getRoot() {
+        return root;
     }
 }
