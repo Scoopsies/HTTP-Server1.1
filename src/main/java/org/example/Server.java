@@ -18,15 +18,13 @@ public class Server {
     public String root = ".";
     public Boolean isRunning = true;
     private GuessingGame guessingGame = new GuessingGame();
-    private Thread thread;
 
 
     public Server() {}
 
     public void run() {
         printStartupConfig();
-        thread = new Thread(this::handleIO);
-        thread.start();
+        new Thread(this::handleIO).start();
     }
 
     public void handleIO() {
@@ -40,13 +38,20 @@ public class Server {
         while (isRunning) {
             try {
                 var clientSocket = this.serverSocket.accept();
-                var in = clientSocket.getInputStream();
-                var out = clientSocket.getOutputStream();
 
-                var response = getResponse(in);
-                out.write(response);
-                clientSocket.close();
-            } catch (IOException | InterruptedException ioe) {
+                new Thread(() -> {
+                    try {
+                        var in = clientSocket.getInputStream();
+                        var out = clientSocket.getOutputStream();
+                        var response = getResponse(in);
+                        out.write(response);
+                        clientSocket.close();
+                    } catch (IOException | InterruptedException ioe) {
+                        System.out.println(ioe.getMessage());
+                    }
+                }).start();
+
+            } catch (IOException ioe) {
                 System.out.println(ioe.getMessage());
             }
         }
@@ -54,7 +59,6 @@ public class Server {
 
     public void stop() throws IOException {
         isRunning = false;
-        thread = null;
         this.serverSocket.close();
     }
 
