@@ -71,9 +71,21 @@ public class Server {
 
         ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
 
-        if (filePath.endsWith("/ping")) {
-            Thread.sleep(1000);
-            return buildResponse(responseStream, getContentType("index.html"), getCurrentTime().getBytes());
+        if (filePath.startsWith("/ping")) {
+            var sleepModifier = filePath.replace("/ping/", "");
+            int timeToSleep;
+
+            try {
+                timeToSleep = Integer.parseInt(sleepModifier) * 1000;
+            } catch (Exception e) {
+                timeToSleep = 0;
+            }
+
+            System.out.println(sleepModifier);
+            var html = "<h2>Ping</h2>\n" + "<li>start time: " + getCurrentTime() + "</li>";
+            Thread.sleep(timeToSleep);
+            html += "<li>end time: " + getCurrentTime() + "</li>";
+            return buildResponse(responseStream, getContentType("index.html"), html.getBytes());
         }
 
         if (filePath.endsWith("/guess")) {
@@ -127,7 +139,7 @@ public class Server {
 
     private String getCurrentTime() {
         var time = LocalDateTime.now();
-        var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         return time.format(formatter);
     }
 
