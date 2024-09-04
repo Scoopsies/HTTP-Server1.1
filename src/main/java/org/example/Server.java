@@ -2,7 +2,6 @@ package org.example;
 
 import java.io.*;
 import java.net.ServerSocket;
-import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,12 +13,10 @@ import java.util.Objects;
 public class Server {
     public static final String CLRF = "\r\n";
     public ServerSocket serverSocket;
-    public SocketAddress socketAddress;
     public int port = 80;
     public String root = ".";
-    public Boolean isRunning = true;
+    public Boolean isRunnable = true;
     private GuessingGame guessingGame = new GuessingGame();
-
 
     public Server() {}
 
@@ -31,12 +28,11 @@ public class Server {
     public void handleIO() {
         try {
             this.serverSocket = new ServerSocket(port);
-            socketAddress = serverSocket.getLocalSocketAddress();
         } catch (IOException ioe) {
             System.out.println(ioe.getMessage());
         }
 
-        while (isRunning) {
+        while (isRunnable) {
             try {
                 var clientSocket = this.serverSocket.accept();
 
@@ -59,7 +55,7 @@ public class Server {
     }
 
     public void stop() throws IOException {
-        isRunning = false;
+        isRunnable = false;
         this.serverSocket.close();
     }
 
@@ -86,9 +82,9 @@ public class Server {
                 timeToSleep = 0;
             }
 
-            var html = "<h2>Ping</h2>\n" + "<li>start time: " + getCurrentTime() + "</li>";
+            var html = "<h2>Ping</h2>\n" + "<li>start time: " + getCurrentTime() + "</li>\n";
             Thread.sleep(timeToSleep);
-            html += "<li>end time: " + getCurrentTime() + "</li>";
+            html += "<li>end time: " + getCurrentTime() + "</li>\n";
             return buildResponse(responseStream, getContentType("index.html"), html.getBytes());
         }
 
@@ -142,6 +138,21 @@ public class Server {
         return buildResponse(responseStream, "404 Not Found", getContentType(filePath), getFileContent(fileNotFound));
     }
 
+    public String getRequest(InputStream inputStream) throws IOException {
+        StringBuilder request = new StringBuilder();
+        byte[] buffer = new byte[1000];
+        int bytesRead;
+
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            request.append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
+            if (bytesRead < buffer.length) {
+                break;
+            }
+        }
+
+        return request.toString();
+    }
+
     private HashMap<String, String> parseQuery(String filePath) {
         var queryMap = new HashMap<String, String>();
         var query = filePath.split("\\?");
@@ -169,7 +180,7 @@ public class Server {
         return buildResponse(responseStream, "200 OK", contentType, content);
     }
 
-    private String getCurrentTime() {
+    public String getCurrentTime() {
         var time = LocalDateTime.now();
         var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         return time.format(formatter);
@@ -191,14 +202,13 @@ public class Server {
         return getHeader(request).split("\\s");
     }
 
-    public byte[] getFileContent(File file) throws IOException {
+    private byte[] getFileContent(File file) throws IOException {
         String extension = getExtensionOf(file.getName());
 
         if (isTextFile(extension))
             return getTextFileContent(file).getBytes();
 
         return getBinaryFileContent(file);
-
     }
 
     private boolean isTextFile(String extension) {
@@ -288,7 +298,7 @@ public class Server {
                 root = args[i + 1];
 
             if (Objects.equals(args[i], "-h")) {
-                isRunning = false;
+                isRunnable = false;
                 System.out.println("  -p     Specify the port.  Default is 80.");
                 System.out.println("  -r     Specify the root directory.  Default is the current working directory.");
                 System.out.println("  -h     Print this help message");
@@ -296,7 +306,7 @@ public class Server {
             }
 
             if (Objects.equals(args[i], "-x")) {
-                isRunning = false;
+                isRunnable = false;
                 isPrintingConfig = true;
             }
 
@@ -304,21 +314,6 @@ public class Server {
         
         if (isPrintingConfig)
             printStartupConfig();
-    }
-
-    public String getRequest(InputStream inputStream) throws IOException {
-        StringBuilder request = new StringBuilder();
-        byte[] buffer = new byte[1000];
-        int bytesRead;
-
-        while ((bytesRead = inputStream.read(buffer)) != -1) {
-            request.append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
-            if (bytesRead < buffer.length) {
-                break;
-            }
-        }
-
-        return request.toString();
     }
 
     private void printStartupConfig() {

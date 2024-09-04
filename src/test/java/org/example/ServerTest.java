@@ -1,5 +1,6 @@
 package org.example;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -10,14 +11,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ServerTest {
     private Server server;
+    private PrintStream stdOut;
+    private ByteArrayOutputStream baos;
 
     @BeforeEach
     void setup() {
         server = new Server();
-//        var baos = new ByteArrayOutputStream();
-//        System.setOut(new PrintStream(baos));
+        stdOut = System.out;
+        baos = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(baos));
     }
 
+    @AfterEach
+    void cleanUp() {
+        System.setOut(stdOut);
+    }
 
     @Test
     void serverSocketCreatedAtPort80byDefault() {
@@ -28,16 +36,18 @@ class ServerTest {
     void localSocketAddressCreated() throws IOException, InterruptedException {
         server.run();
         Thread.sleep(10);
-        assertEquals("0.0.0.0/0.0.0.0:80", server.socketAddress.toString());
+        assertEquals("0.0.0.0/0.0.0.0:80", server.serverSocket.getLocalSocketAddress().toString());
         server.stop();
     }
 
     @Test
-    void runListensForAConnection() throws IOException {
+    void runListensForAConnection() throws IOException, InterruptedException {
         server.run();
+        Thread.sleep(5);
 
+        var socketAddress = server.serverSocket.getLocalSocketAddress();
         try (var socket = new Socket()) {
-            assertDoesNotThrow(() -> socket.connect(server.socketAddress));
+            assertDoesNotThrow(() -> socket.connect(socketAddress));
             var outputStream = socket.getOutputStream();
             outputStream.write("GET / HTTP/1.1 \r\n".getBytes());
             outputStream.flush();
@@ -143,6 +153,34 @@ class ServerTest {
     void getResponseForThings() throws IOException, InterruptedException {
         var inputStream = new ByteArrayInputStream("GET /noIndex HTTP/1.1".getBytes());
         var directory = new File(server.root + "/noIndex");
+        var expected ="""
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
+                \r
+                %s""".formatted(server.buildDirectoryListing(directory));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    void getResponseForListing() throws IOException, InterruptedException {
+        var inputStream = new ByteArrayInputStream("GET /listing HTTP/1.1".getBytes());
+        var directory = new File(server.root);
+        var expected ="""
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
+                \r
+                %s""".formatted(server.buildDirectoryListing(directory));
+        var result = new String(server.getResponse(inputStream));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    void getResponseForListingHello() throws IOException, InterruptedException {
+        var inputStream = new ByteArrayInputStream("GET /listing/hello HTTP/1.1".getBytes());
+        var directory = new File(server.root + "/hello");
         var expected ="""
                 HTTP/1.1 200 OK\r
                 Content-Type: text/html
@@ -301,6 +339,45 @@ class ServerTest {
     }
 
     @Test
+    void parseArgsXPrintsSystemSettings() {
+        String[] args = {"-x"};
+        server.parseArgs(args);
+        var result = """
+                Example Server
+                Running on port: 80
+                Serving files from: /Users/scoops/Projects/httpServer1.1
+                """;
+        assertEquals(result, baos.toString());
+    }
+
+    @Test
+    void parseArgsXDoesNotRunServer() {
+        String[] args = {"-x"};
+        server.parseArgs(args);
+        assertFalse(server.isRunnable);
+    }
+
+    @Test
+    void parseArgsHDoesNotRunServer() {
+        String[] args = {"-h"};
+        server.parseArgs(args);
+        assertFalse(server.isRunnable);
+    }
+
+    @Test
+    void parseArgsHPrintsHelpMenu() {
+        String[] args = {"-h"};
+        server.parseArgs(args);
+        var result = """
+                  -p     Specify the port.  Default is 80.
+                  -r     Specify the root directory.  Default is the current working directory.
+                  -h     Print this help message
+                  -x     Print the startup configuration without starting the server
+                """;
+        assertEquals(result, baos.toString());
+    }
+
+    @Test
     void getMethodReturnsGet() {
         var request = "GET / HTTP/1.1";
         assertEquals("GET", server.getMethod(request));
@@ -364,4 +441,39 @@ class ServerTest {
         assertEquals(response, new String(server.getResponse(input)));
     }
 
+    @Test
+    void pingRouteRespondsImmediately() throws IOException, InterruptedException {
+        var header = "POST /ping HTTP/1.1\r\n";
+        var input = new ByteArrayInputStream(header.getBytes());
+        var time = server.getCurrentTime();
+        var response = """
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
+                \r
+                <h2>Ping</h2>
+                <li>start time: %s</li>
+                <li>end time: %s</li>
+                """.formatted(time, time);
+        assertEquals(response, new String(server.getResponse(input)));
+    }
+
+    @Test
+    void ping1RouteResponds1SecondLater() throws IOException, InterruptedException {
+        var header = "POST /ping HTTP/1.1\r\n";
+        var input = new ByteArrayInputStream(header.getBytes());
+        var time = server.getCurrentTime();
+
+        System.setOut(stdOut);
+        var response = """
+                HTTP/1.1 200 OK\r
+                Content-Type: text/html
+                Server: httpServer1.1\r
+                \r
+                <h2>Ping</h2>
+                <li>start time: %s</li>
+                <li>end time: %s</li>
+                """.formatted(time, time);
+        assertEquals(response, new String(server.getResponse(input)));
+    }
 }
